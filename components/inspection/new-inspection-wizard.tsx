@@ -72,7 +72,6 @@ export function NewInspectionWizard({
   /* load assets when the type filter changes */
   useEffect(() => {
     let alive = true;
-    setLoadingAssets(true);
     (async () => {
       try {
         let q = supabase
@@ -120,6 +119,11 @@ export function NewInspectionWizard({
       setLatInput(a.lat?.toString() ?? "");
       setLngInput(a.lng?.toString() ?? "");
     }
+  }
+
+  function changeTypeFilter(value: string) {
+    setTypeFilter(value);
+    setLoadingAssets(true);
   }
 
   function resetAll() {
@@ -412,7 +416,7 @@ export function NewInspectionWizard({
         <div className="flex gap-1.5 overflow-x-auto pb-1">
           <button
             type="button"
-            onClick={() => setTypeFilter("all")}
+            onClick={() => changeTypeFilter("all")}
             className={cn(
               "shrink-0 rounded-full px-3 py-1.5 text-xs font-semibold",
               typeFilter === "all"
@@ -426,7 +430,7 @@ export function NewInspectionWizard({
             <button
               key={t.id}
               type="button"
-              onClick={() => setTypeFilter(typeFilter === t.id ? "all" : t.id)}
+              onClick={() => changeTypeFilter(typeFilter === t.id ? "all" : t.id)}
               className={cn(
                 "shrink-0 rounded-full px-3 py-1.5 text-xs font-semibold",
                 typeFilter === t.id

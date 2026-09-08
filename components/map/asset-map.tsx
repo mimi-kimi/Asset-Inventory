@@ -28,8 +28,8 @@ export function AssetMap({ points }: { points: MapPoint[] }) {
   // SSR renders a placeholder instead of the map (avoids hydration mismatches).
   const [ready, setReady] = useState(false);
   useEffect(() => {
-    setReady(true);
     // eslint-disable-next-line react-hooks/set-state-in-effect
+    setReady(true);
   }, []);
 
   if (!ready) {

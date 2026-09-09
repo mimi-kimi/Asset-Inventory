@@ -54,6 +54,7 @@ export interface AssetRow {
     id: string;
     functional: boolean;
     inspected_at: string;
+    photo_webp?: string | null;
   }> | null;
 }
 

@@ -1,14 +1,15 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import Link from "next/link";
-import { CheckCircle2, ChevronDown, ChevronUp, Layers, X } from "lucide-react";
-import { cn, fmtCoords } from "@/lib/format";
+import { ChevronDown, ChevronUp, Layers } from "lucide-react";
+import { cn, fmtCoords, fmtDateTime } from "@/lib/format";
 import { markerState, MARKER_META } from "@/lib/marker";
 import type { AssetRow, TaskRow } from "@/lib/types";
 import { Card } from "@/components/ui";
 import { MarkersMap, MarkerLegend } from "@/components/map/markers-map";
 import type { MapPoint } from "@/components/map/markers-map";
+import { createClient } from "@/lib/supabase/client";
 
 const ACTIVE_KEY = "rat-active-task";
 
@@ -33,7 +34,32 @@ export function DashboardWorkspace({
   });
   const [selectorOpen, setSelectorOpen] = useState(false);
   const [selected, setSelected] = useState<AssetRow | null>(null);
+  const [loadingDetail, setLoadingDetail] = useState(false);
   const [fitSignal, setFitSignal] = useState(0);
+
+  /** fetch full marker detail (incl. latest inspection photo) on click */
+  async function selectMarker(id: string) {
+    const local = visibleAssets.find((a) => a.id === id) ?? null;
+    setSelected(local);
+    setLoadingDetail(true);
+    try {
+      const { data } = await createClient()
+        .from("assets")
+        .select("*, inspections(id, functional, inspected_at, photo_webp)")
+        .eq("id", id)
+        .maybeSingle();
+      if (data) {
+        setSelected({
+          ...(data as AssetRow),
+          asset_types: local?.asset_types ?? null,
+        });
+      }
+    } catch {
+      // keep the lightweight local copy on failure
+    } finally {
+      setLoadingDetail(false);
+    }
+  }
 
   function chooseTask(id: string | "all") {
     setActiveTaskId(id);
@@ -44,30 +70,26 @@ export function DashboardWorkspace({
     }
   }
 
-  const visibleAssets = useMemo(() => {
-    if (activeTaskId === "all") return assets;
-    return assets.filter((a) => a.task_id === activeTaskId);
-  }, [assets, activeTaskId]);
+  const visibleAssets =
+    activeTaskId === "all"
+      ? assets
+      : assets.filter((a) => a.task_id === activeTaskId);
 
-  const points: MapPoint[] = useMemo(
-    () =>
-      visibleAssets
-        .filter((a) => a.lat != null && a.lng != null)
-        .map((a) => {
-          const state = markerState(a);
-          return {
-            id: a.id,
-            label: a.seq_no || a.inventory_id || a.code,
-            sub: a.inventory_id ? `${a.inventory_id}` : undefined,
-            lat: a.lat as number,
-            lng: a.lng as number,
-            state,
-          };
-        }),
-    [visibleAssets],
-  );
+  const points: MapPoint[] = visibleAssets
+    .filter((a) => a.lat != null && a.lng != null)
+    .map((a) => {
+      const state = markerState(a);
+      return {
+        id: a.id,
+        label: a.seq_no || a.inventory_id || a.code,
+        sub: a.inventory_id ? `${a.inventory_id}` : undefined,
+        lat: a.lat as number,
+        lng: a.lng as number,
+        state,
+      };
+    });
 
-  const stats = useMemo(() => {
+  const stats = (() => {
     let price = 0;
     const counts = { todo: 0, ok: 0, bad: 0 };
     const dist = new Map<string, { count: number; price: number }>();
@@ -86,9 +108,17 @@ export function DashboardWorkspace({
       .map(([name, v]) => ({ name, ...v }))
       .sort((a, b) => b.count - a.count);
     return { price, counts, distribution, total: visibleAssets.length };
-  }, [visibleAssets]);
+  })();
 
   const activeTask = tasks.find((t) => t.id === activeTaskId) ?? null;
+
+  const latestInspection =
+    selected?.inspections && selected.inspections.length > 0
+      ? [...selected.inspections].sort((a, b) =>
+          b.inspected_at.localeCompare(a.inspected_at),
+        )[0]
+      : null;
+  const photoSrc = latestInspection?.photo_webp ?? selected?.photo_url ?? null;
 
   return (
     <div className="h-full w-full overflow-y-auto bg-zinc-100 xl:overflow-hidden">
@@ -239,95 +269,124 @@ export function DashboardWorkspace({
                   ? "No tasks yet — import one from the Task page"
                   : "No markers in this selection"
               }
-              onSelect={(p) =>
-                setSelected(visibleAssets.find((a) => a.id === p.id) ?? null)
-              }
+              onSelect={(p) => selectMarker(p.id)}
               selectedId={selected?.id ?? null}
             />
 
-            {selected && (
-              <div className="pointer-events-none absolute bottom-4 left-1/2 z-[1000] w-[min(94%,480px)] -translate-x-1/2">
-                <div className="pointer-events-auto rounded-2xl border border-zinc-200 bg-white p-4 shadow-2xl">
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="min-w-0 flex-1">
-                      <p className="text-xs font-semibold uppercase tracking-wide text-zinc-400">
-                        Marker · No. {selected.seq_no ?? "—"}
-                      </p>
-                      <p className="truncate text-lg font-bold text-zinc-900">
-                        {selected.inventory_id
-                          ? `ID-Inventory: ${selected.inventory_id}`
-                          : selected.code || "No ID-Inventory yet"}
-                      </p>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={() => setSelected(null)}
-                      className="pointer-events-auto rounded-lg p-1.5 text-zinc-400 hover:bg-zinc-100"
-                      aria-label="Close"
-                    >
-                      <X className="h-4 w-4" />
-                    </button>
-                  </div>
-                  <dl className="mt-3 grid grid-cols-2 gap-x-4 gap-y-2 border-t border-zinc-100 pt-3 text-sm">
-                    <div>
-                      <dt className="text-[11px] font-semibold uppercase tracking-wide text-zinc-400">
-                        Price
-                      </dt>
-                      <dd className="font-bold text-zinc-900">
-                        {formatPrice(selected.price ?? 0)}
-                      </dd>
-                    </div>
-                    <div>
-                      <dt className="text-[11px] font-semibold uppercase tracking-wide text-zinc-400">
-                        Type
-                      </dt>
-                      <dd className="truncate text-zinc-700">
-                        {selected.type_text || selected.asset_types?.name || "Not set"}
-                      </dd>
-                    </div>
-                    <div>
-                      <dt className="text-[11px] font-semibold uppercase tracking-wide text-zinc-400">
-                        Coordinates
-                      </dt>
-                      <dd className="text-zinc-700">
-                        {fmtCoords(selected.lat, selected.lng)}
-                      </dd>
-                    </div>
-                    <div>
-                      <dt className="text-[11px] font-semibold uppercase tracking-wide text-zinc-400">
-                        Status
-                      </dt>
-                      <dd>
-                        <span className="inline-flex items-center gap-1.5 font-semibold text-zinc-700">
-                          <span
-                            className="h-3 w-3 rounded-full"
-                            style={{ background: MARKER_META[markerState(selected)].color }}
-                          />
-                          {MARKER_META[markerState(selected)].label}
-                        </span>
-                      </dd>
-                    </div>
-                  </dl>
-                  {selected.notes && (
-                    <p className="mt-2 line-clamp-2 border-t border-zinc-100 pt-2 text-xs text-zinc-500">
-                      <span className="font-semibold text-zinc-400">Remarks: </span>
-                      {selected.notes}
-                    </p>
-                  )}
-                  <div className="mt-3 flex justify-end border-t border-zinc-100 pt-3">
-                    <Link
-                      href={`/mobile/record/upsert?asset=${selected.id}`}
-                      className="pointer-events-auto inline-flex items-center gap-1.5 rounded-lg bg-amber-500 px-4 py-2 text-sm font-semibold text-zinc-950 hover:bg-amber-400"
-                    >
-                      {markerState(selected) === "todo" ? "Inspect" : "Edit"}
-                      <CheckCircle2 className="h-4 w-4" />
-                    </Link>
-                  </div>
-                </div>
+            {loadingDetail && (
+              <div className="pointer-events-none absolute right-3 top-3 z-[1000] rounded-full bg-zinc-900/80 px-3 py-1.5 text-xs font-semibold text-white">
+                Loading details…
               </div>
             )}
           </div>
         </Card>
+      </div>
+
+      {/* Selected marker details (desktop only — inspection happens on mobile) */}
+      <div className="hidden flex-col border-l border-zinc-200 bg-white xl:flex xl:w-[360px] xl:shrink-0 xl:overflow-y-auto">
+        {!selected ? (
+          <div className="flex flex-1 flex-col items-center justify-center gap-2 p-6 text-center">
+            <span className="text-4xl">📍</span>
+            <p className="font-semibold text-zinc-600">Select a marker</p>
+            <p className="text-xs text-zinc-400">
+              Its photo and full information will appear here.
+            </p>
+          </div>
+        ) : (
+          <>
+            <div className="h-44 w-full shrink-0 border-b border-zinc-200 bg-zinc-900">
+              {photoSrc ? (
+                /* eslint-disable-next-line @next/next/no-img-element */
+                <img
+                  src={photoSrc}
+                  alt="Marker"
+                  className="h-full w-full object-cover"
+                />
+              ) : (
+                <div className="flex h-full w-full flex-col items-center justify-center gap-1 text-zinc-400">
+                  <span className="text-3xl">📷</span>
+                  <span className="text-xs">No photo yet</span>
+                </div>
+              )}
+            </div>
+
+            <div className="space-y-4 px-5 py-4">
+              <div>
+                <p className="text-[11px] font-semibold uppercase tracking-wide text-zinc-400">
+                  Marker · No. {selected.seq_no ?? "—"}
+                </p>
+                <p className="text-lg font-bold text-zinc-900">
+                  {selected.inventory_id
+                    ? `ID-Inventory: ${selected.inventory_id}`
+                    : selected.code || "No ID-Inventory yet"}
+                </p>
+              </div>
+
+              <dl className="space-y-2.5 border-t border-zinc-100 pt-4 text-sm">
+                <div className="flex justify-between gap-3">
+                  <dt className="text-xs font-semibold text-zinc-400">Price</dt>
+                  <dd className="font-bold text-zinc-900">
+                    {formatPrice(selected.price ?? 0)}
+                  </dd>
+                </div>
+                <div className="flex justify-between gap-3">
+                  <dt className="text-xs font-semibold text-zinc-400">Type</dt>
+                  <dd className="truncate text-right text-zinc-700">
+                    {selected.type_text || selected.asset_types?.name || "Not set"}
+                  </dd>
+                </div>
+                <div className="flex justify-between gap-3">
+                  <dt className="text-xs font-semibold text-zinc-400">Coordinates</dt>
+                  <dd className="text-right text-zinc-700">
+                    {fmtCoords(selected.lat, selected.lng)}
+                  </dd>
+                </div>
+                <div className="flex justify-between gap-3">
+                  <dt className="text-xs font-semibold text-zinc-400">Status</dt>
+                  <dd>
+                    <span className="inline-flex items-center gap-1.5 font-semibold text-zinc-700">
+                      <span
+                        className="h-3 w-3 rounded-full"
+                        style={{ background: MARKER_META[markerState(selected)].color }}
+                      />
+                      {MARKER_META[markerState(selected)].label}
+                    </span>
+                  </dd>
+                </div>
+                {latestInspection && (
+                  <div className="flex justify-between gap-3">
+                    <dt className="text-xs font-semibold text-zinc-400">Working?</dt>
+                    <dd
+                      className={`font-semibold ${
+                        latestInspection.functional
+                          ? "text-emerald-600"
+                          : "text-red-600"
+                      }`}
+                    >
+                      {latestInspection.functional ? "Yes" : "No"}
+                      <span className="ml-2 font-normal text-zinc-400">
+                        {fmtDateTime(latestInspection.inspected_at)}
+                      </span>
+                    </dd>
+                  </div>
+                )}
+              </dl>
+
+              {selected.notes && (
+                <div className="border-t border-zinc-100 pt-3">
+                  <p className="text-[11px] font-semibold uppercase tracking-wide text-zinc-400">
+                    Remarks
+                  </p>
+                  <p className="mt-1 text-sm text-zinc-600">{selected.notes}</p>
+                </div>
+              )}
+
+              <p className="border-t border-zinc-100 pt-3 text-xs text-zinc-400">
+                📱 Field inspection is done in the mobile app.
+              </p>
+            </div>
+          </>
+        )}
       </div>
 
       <div className="order-3 flex flex-col gap-3 xl:w-[340px] xl:shrink-0 xl:gap-0 xl:overflow-y-auto xl:border-l xl:border-zinc-200 xl:bg-white">

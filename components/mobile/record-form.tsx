@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { Camera, CheckCircle2, Loader2, Save } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { fileToWebpDataUrl } from "@/lib/image";
@@ -19,6 +20,7 @@ export function RecordForm({
   inspection: InspectionRow | null;
   assetTypes: AssetType[];
 }) {
+  const router = useRouter();
   const supabase = createClient();
 
   const initialTypeId =
@@ -159,9 +161,9 @@ export function RecordForm({
           <button
             type="button"
             onClick={() => {
-              // hard navigation guarantees a freshly-loaded map with the
-              // updated marker color when the inspector returns
-              window.location.assign("/mobile");
+              // navigating to the map route fetches fresh data, so the
+              // inspected marker comes back with its new color
+              void router.push("/mobile");
             }}
             className="rounded-lg bg-amber-500 px-4 py-2.5 text-sm font-semibold text-zinc-950 hover:bg-amber-400"
           >

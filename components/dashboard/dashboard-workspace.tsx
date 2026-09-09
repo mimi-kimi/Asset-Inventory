@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { ChevronDown, ChevronUp, Layers } from "lucide-react";
+import { ChevronDown, ChevronUp, Layers, X } from "lucide-react";
 import { cn, fmtCoords, fmtDateTime } from "@/lib/format";
 import { markerState, MARKER_META } from "@/lib/marker";
 import type { AssetRow, TaskRow } from "@/lib/types";
@@ -282,112 +282,114 @@ export function DashboardWorkspace({
         </Card>
       </div>
 
-      {/* Selected marker details (desktop only — inspection happens on mobile) */}
-      <div className="hidden flex-col border-l border-zinc-200 bg-white xl:flex xl:w-[360px] xl:shrink-0 xl:overflow-y-auto">
-        {!selected ? (
-          <div className="flex flex-1 flex-col items-center justify-center gap-2 p-6 text-center">
-            <span className="text-4xl">📍</span>
-            <p className="font-semibold text-zinc-600">Select a marker</p>
-            <p className="text-xs text-zinc-400">
-              Its photo and full information will appear here.
-            </p>
+      {/* Selected marker details drawer (desktop) */}
+      {selected && (
+        <div className="hidden flex-col border-l border-zinc-200 bg-white xl:flex xl:w-[380px] xl:shrink-0 xl:overflow-y-auto">
+          <div className="flex items-center justify-between border-b border-zinc-200 px-4 py-3">
+            <h3 className="text-sm font-bold text-zinc-900">Marker details</h3>
+            <button
+              type="button"
+              onClick={() => setSelected(null)}
+              className="rounded-lg p-1.5 text-zinc-400 hover:bg-zinc-100"
+              aria-label="Close details"
+            >
+              <X className="h-4 w-4" />
+            </button>
           </div>
-        ) : (
-          <>
-            <div className="h-44 w-full shrink-0 border-b border-zinc-200 bg-zinc-900">
-              {photoSrc ? (
-                /* eslint-disable-next-line @next/next/no-img-element */
-                <img
-                  src={photoSrc}
-                  alt="Marker"
-                  className="h-full w-full object-cover"
-                />
-              ) : (
-                <div className="flex h-full w-full flex-col items-center justify-center gap-1 text-zinc-400">
-                  <span className="text-3xl">📷</span>
-                  <span className="text-xs">No photo yet</span>
-                </div>
-              )}
+
+          <div className="h-48 w-full shrink-0 border-b border-zinc-200 bg-zinc-900">
+            {photoSrc ? (
+              /* eslint-disable-next-line @next/next/no-img-element */
+              <img
+                src={photoSrc}
+                alt="Marker"
+                className="h-full w-full object-cover"
+              />
+            ) : (
+              <div className="flex h-full w-full flex-col items-center justify-center gap-1 text-zinc-400">
+                <span className="text-3xl">📷</span>
+                <span className="text-xs">No photo yet</span>
+              </div>
+            )}
+          </div>
+
+          <div className="space-y-4 px-5 py-4">
+            <div>
+              <p className="text-[11px] font-semibold uppercase tracking-wide text-zinc-400">
+                Marker · No. {selected.seq_no ?? "—"}
+              </p>
+              <p className="text-lg font-bold text-zinc-900">
+                {selected.inventory_id
+                  ? `ID-Inventory: ${selected.inventory_id}`
+                  : selected.code || "No ID-Inventory yet"}
+              </p>
             </div>
 
-            <div className="space-y-4 px-5 py-4">
-              <div>
-                <p className="text-[11px] font-semibold uppercase tracking-wide text-zinc-400">
-                  Marker · No. {selected.seq_no ?? "—"}
-                </p>
-                <p className="text-lg font-bold text-zinc-900">
-                  {selected.inventory_id
-                    ? `ID-Inventory: ${selected.inventory_id}`
-                    : selected.code || "No ID-Inventory yet"}
-                </p>
+            <dl className="space-y-2.5 border-t border-zinc-100 pt-4 text-sm">
+              <div className="flex justify-between gap-3">
+                <dt className="text-xs font-semibold text-zinc-400">Price</dt>
+                <dd className="font-bold text-zinc-900">
+                  {formatPrice(selected.price ?? 0)}
+                </dd>
               </div>
-
-              <dl className="space-y-2.5 border-t border-zinc-100 pt-4 text-sm">
+              <div className="flex justify-between gap-3">
+                <dt className="text-xs font-semibold text-zinc-400">Type</dt>
+                <dd className="truncate text-right text-zinc-700">
+                  {selected.type_text || selected.asset_types?.name || "Not set"}
+                </dd>
+              </div>
+              <div className="flex justify-between gap-3">
+                <dt className="text-xs font-semibold text-zinc-400">Coordinates</dt>
+                <dd className="text-right text-zinc-700">
+                  {fmtCoords(selected.lat, selected.lng)}
+                </dd>
+              </div>
+              <div className="flex justify-between gap-3">
+                <dt className="text-xs font-semibold text-zinc-400">Status</dt>
+                <dd>
+                  <span className="inline-flex items-center gap-1.5 font-semibold text-zinc-700">
+                    <span
+                      className="h-3 w-3 rounded-full"
+                      style={{ background: MARKER_META[markerState(selected)].color }}
+                    />
+                    {MARKER_META[markerState(selected)].label}
+                  </span>
+                </dd>
+              </div>
+              {latestInspection && (
                 <div className="flex justify-between gap-3">
-                  <dt className="text-xs font-semibold text-zinc-400">Price</dt>
-                  <dd className="font-bold text-zinc-900">
-                    {formatPrice(selected.price ?? 0)}
-                  </dd>
-                </div>
-                <div className="flex justify-between gap-3">
-                  <dt className="text-xs font-semibold text-zinc-400">Type</dt>
-                  <dd className="truncate text-right text-zinc-700">
-                    {selected.type_text || selected.asset_types?.name || "Not set"}
-                  </dd>
-                </div>
-                <div className="flex justify-between gap-3">
-                  <dt className="text-xs font-semibold text-zinc-400">Coordinates</dt>
-                  <dd className="text-right text-zinc-700">
-                    {fmtCoords(selected.lat, selected.lng)}
-                  </dd>
-                </div>
-                <div className="flex justify-between gap-3">
-                  <dt className="text-xs font-semibold text-zinc-400">Status</dt>
-                  <dd>
-                    <span className="inline-flex items-center gap-1.5 font-semibold text-zinc-700">
-                      <span
-                        className="h-3 w-3 rounded-full"
-                        style={{ background: MARKER_META[markerState(selected)].color }}
-                      />
-                      {MARKER_META[markerState(selected)].label}
+                  <dt className="text-xs font-semibold text-zinc-400">Working?</dt>
+                  <dd
+                    className={`font-semibold ${
+                      latestInspection.functional
+                        ? "text-emerald-600"
+                        : "text-red-600"
+                    }`}
+                  >
+                    {latestInspection.functional ? "Yes" : "No"}
+                    <span className="ml-2 font-normal text-zinc-400">
+                      {fmtDateTime(latestInspection.inspected_at)}
                     </span>
                   </dd>
                 </div>
-                {latestInspection && (
-                  <div className="flex justify-between gap-3">
-                    <dt className="text-xs font-semibold text-zinc-400">Working?</dt>
-                    <dd
-                      className={`font-semibold ${
-                        latestInspection.functional
-                          ? "text-emerald-600"
-                          : "text-red-600"
-                      }`}
-                    >
-                      {latestInspection.functional ? "Yes" : "No"}
-                      <span className="ml-2 font-normal text-zinc-400">
-                        {fmtDateTime(latestInspection.inspected_at)}
-                      </span>
-                    </dd>
-                  </div>
-                )}
-              </dl>
-
-              {selected.notes && (
-                <div className="border-t border-zinc-100 pt-3">
-                  <p className="text-[11px] font-semibold uppercase tracking-wide text-zinc-400">
-                    Remarks
-                  </p>
-                  <p className="mt-1 text-sm text-zinc-600">{selected.notes}</p>
-                </div>
               )}
+            </dl>
 
-              <p className="border-t border-zinc-100 pt-3 text-xs text-zinc-400">
-                📱 Field inspection is done in the mobile app.
-              </p>
-            </div>
-          </>
-        )}
-      </div>
+            {selected.notes && (
+              <div className="border-t border-zinc-100 pt-3">
+                <p className="text-[11px] font-semibold uppercase tracking-wide text-zinc-400">
+                  Remarks
+                </p>
+                <p className="mt-1 text-sm text-zinc-600">{selected.notes}</p>
+              </div>
+            )}
+
+            <p className="border-t border-zinc-100 pt-3 text-xs text-zinc-400">
+              📱 Field inspection is done in the mobile app.
+            </p>
+          </div>
+        </div>
+      )}
 
       <div className="order-3 flex flex-col gap-3 xl:w-[340px] xl:shrink-0 xl:gap-0 xl:overflow-y-auto xl:border-l xl:border-zinc-200 xl:bg-white">
         <div className="rounded-xl border border-zinc-200 bg-white px-5 py-4 shadow-sm xl:rounded-none xl:border-0 xl:border-b xl:border-zinc-100 xl:shadow-none">

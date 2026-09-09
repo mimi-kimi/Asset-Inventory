@@ -122,15 +122,15 @@ export function MobileMapScreen({
           className="h-full w-full"
         />
 
-        <div className="absolute left-3 top-3 rounded-full border border-zinc-200 bg-white/95 px-3 py-1.5 shadow-sm">
+        <div className="absolute left-3 top-3 z-[1000] rounded-full border border-zinc-200 bg-white/95 px-3 py-1.5 shadow-sm">
           <MarkerLegend />
         </div>
 
         {selected && (
-          <div className="absolute inset-x-3 bottom-4">
+          <div className="absolute inset-x-3 bottom-4 z-[1000]">
             <div className="rounded-2xl border border-zinc-200 bg-white p-4 shadow-2xl">
               <div className="flex items-start justify-between gap-3">
-                <div className="min-w-0">
+                <div className="min-w-0 flex-1">
                   <p className="text-[11px] font-semibold uppercase tracking-wide text-zinc-400">
                     Marker · No. {selected.seq_no ?? "—"}
                   </p>
@@ -138,9 +138,6 @@ export function MobileMapScreen({
                     {selected.inventory_id
                       ? `ID-Inventory: ${selected.inventory_id}`
                       : "No ID-Inventory yet"}
-                  </p>
-                  <p className="mt-0.5 truncate text-xs text-zinc-500">
-                    {selected.type_text || selected.asset_types?.name || "Type not set"}
                   </p>
                 </div>
                 <button
@@ -151,21 +148,62 @@ export function MobileMapScreen({
                   <X className="h-5 w-5" />
                 </button>
               </div>
-              <div className="mt-3 flex items-center justify-between gap-2 border-t border-zinc-100 pt-3">
-                <span className="inline-flex items-center gap-1.5 text-sm font-semibold text-zinc-700">
-                  <span
-                    className="h-3 w-3 rounded-full"
-                    style={{ background: MARKER_META[markerState(selected)].color }}
-                  />
-                  {MARKER_META[markerState(selected)].label}
-                </span>
-                <Link
-                  href={`/mobile/record/upsert?asset=${selected.id}`}
-                  className="rounded-xl bg-amber-500 px-5 py-2.5 text-sm font-bold text-zinc-950 active:scale-95"
-                >
-                  {markerState(selected) === "todo" ? "Inspect" : "Edit"}
-                </Link>
-              </div>
+              <dl className="mt-3 grid grid-cols-2 gap-x-3 gap-y-2 border-t border-zinc-100 pt-3 text-sm">
+                <div>
+                  <dt className="text-[10px] font-semibold uppercase tracking-wide text-zinc-400">
+                    Price
+                  </dt>
+                  <dd className="font-bold text-zinc-900">
+                    {selected.price != null
+                      ? new Intl.NumberFormat(undefined, { maximumFractionDigits: 2 }).format(selected.price)
+                      : "—"}
+                  </dd>
+                </div>
+                <div>
+                  <dt className="text-[10px] font-semibold uppercase tracking-wide text-zinc-400">
+                    Type
+                  </dt>
+                  <dd className="truncate text-zinc-700">
+                    {selected.type_text || selected.asset_types?.name || "Not set"}
+                  </dd>
+                </div>
+                <div>
+                  <dt className="text-[10px] font-semibold uppercase tracking-wide text-zinc-400">
+                    Coordinates
+                  </dt>
+                  <dd className="text-zinc-700">
+                    {selected.lat != null && selected.lng != null
+                      ? `${selected.lat.toFixed(5)}, ${selected.lng.toFixed(5)}`
+                      : "—"}
+                  </dd>
+                </div>
+                <div>
+                  <dt className="text-[10px] font-semibold uppercase tracking-wide text-zinc-400">
+                    Status
+                  </dt>
+                  <dd>
+                    <span className="inline-flex items-center gap-1.5 font-semibold text-zinc-700">
+                      <span
+                        className="h-2.5 w-2.5 rounded-full"
+                        style={{ background: MARKER_META[markerState(selected)].color }}
+                      />
+                      {MARKER_META[markerState(selected)].label}
+                    </span>
+                  </dd>
+                </div>
+              </dl>
+              {selected.notes && (
+                <p className="mt-2 line-clamp-2 border-t border-zinc-100 pt-2 text-xs text-zinc-500">
+                  <span className="font-semibold text-zinc-400">Remarks: </span>
+                  {selected.notes}
+                </p>
+              )}
+              <Link
+                href={`/mobile/record/upsert?asset=${selected.id}`}
+                className="mt-3 flex w-full items-center justify-center rounded-xl bg-amber-500 px-5 py-3 text-sm font-bold text-zinc-950 active:scale-[0.99]"
+              >
+                {markerState(selected) === "todo" ? "Inspect" : "Edit"} this marker
+              </Link>
             </div>
           </div>
         )}

@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Camera, CheckCircle2, Loader2, Save } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
+import { fileToWebpDataUrl } from "@/lib/image";
 import { cn } from "@/lib/format";
 import type { AssetRow, AssetType, InspectionRow } from "@/lib/types";
 import { btnSecondary, Card, inputCls, labelCls, selectCls } from "@/components/ui";
@@ -40,6 +41,9 @@ export function RecordForm({
   const [typeId, setTypeId] = useState(initialTypeId);
   const [working, setWorking] = useState(inspection?.functional ?? true);
   const [remarks, setRemarks] = useState(inspection?.remarks ?? "");
+  const [photoData, setPhotoData] = useState<string | null>(
+    inspection?.photo_webp ?? null,
+  );
   const [scanning, setScanning] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
@@ -50,6 +54,19 @@ export function RecordForm({
     setError("");
     setInventoryId(text.trim());
     setStep(1);
+  }
+
+  async function handlePhotoFile(file: File | null | undefined) {
+    if (!file) return;
+    setError("");
+    try {
+      const dataUrl = await fileToWebpDataUrl(file);
+      setPhotoData(dataUrl);
+    } catch (err) {
+      setError(
+        err instanceof Error ? err.message : "Could not process that photo.",
+      );
+    }
   }
 
   async function handleSave() {
@@ -84,6 +101,7 @@ export function RecordForm({
           | "GOOD"
           | "NOT_FUNCTIONAL",
         remarks: remarks.trim() || null,
+        photo_webp: photoData,
       };
 
       if (inspection) {
@@ -93,6 +111,7 @@ export function RecordForm({
             functional: working,
             condition: payload.condition,
             remarks: remarks.trim() || null,
+            photo_webp: photoData,
           })
           .eq("id", inspection.id);
         if (upErr) throw upErr;
@@ -238,6 +257,67 @@ export function RecordForm({
         </Card>
       ) : (
         <div className="space-y-3">
+          <Card className="space-y-3 p-5">
+            <div>
+              <p className="text-sm font-bold text-zinc-900">Photo</p>
+              <p className="text-xs text-zinc-500">
+                Take or pick a picture — it is converted to a small WebP image.
+              </p>
+            </div>
+            {photoData ? (
+              <div className="flex items-start gap-3">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={photoData}
+                  alt="Inspection"
+                  className="h-24 w-24 rounded-xl border border-zinc-200 object-cover"
+                />
+                <div className="flex flex-col gap-2">
+                  <label className="inline-flex cursor-pointer items-center gap-1.5 rounded-lg border border-zinc-300 bg-white px-3 py-2 text-xs font-semibold text-zinc-700 hover:bg-zinc-50">
+                    Replace photo
+                    <input
+                      type="file"
+                      accept="image/*"
+                      capture="environment"
+                      className="hidden"
+                      onChange={(e) => {
+                        handlePhotoFile(e.target.files?.[0]);
+                        e.target.value = "";
+                      }}
+                    />
+                  </label>
+                  <button
+                    type="button"
+                    onClick={() => setPhotoData(null)}
+                    className="rounded-lg px-3 py-1.5 text-left text-xs font-semibold text-red-600 hover:bg-red-50"
+                  >
+                    Remove photo
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <label className="flex cursor-pointer flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed border-zinc-300 bg-zinc-50 px-4 py-6 text-center transition-colors hover:border-amber-400 hover:bg-amber-50/40">
+                <Camera className="h-7 w-7 text-zinc-400" />
+                <span className="text-sm font-semibold text-zinc-700">
+                  Add / take a photo
+                </span>
+                <span className="text-xs text-zinc-400">
+                  Opens your camera on a phone
+                </span>
+                <input
+                  type="file"
+                  accept="image/*"
+                  capture="environment"
+                  className="hidden"
+                  onChange={(e) => {
+                    handlePhotoFile(e.target.files?.[0]);
+                    e.target.value = "";
+                  }}
+                />
+              </label>
+            )}
+          </Card>
+
           <Card className="space-y-3 p-5">
             <div>
               <p className="text-sm font-bold text-zinc-900">Asset type</p>

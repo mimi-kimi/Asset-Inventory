@@ -72,6 +72,7 @@ export interface InspectionRow {
   condition: Condition;
   functional: boolean;
   remarks: string | null;
+  photo_webp?: string | null;
   created_at?: string;
   assets?: {
     id: string;

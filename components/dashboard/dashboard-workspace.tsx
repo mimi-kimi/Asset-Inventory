@@ -3,7 +3,7 @@
 import { useMemo, useState } from "react";
 import Link from "next/link";
 import { CheckCircle2, ChevronDown, ChevronUp, Layers, X } from "lucide-react";
-import { cn } from "@/lib/format";
+import { cn, fmtCoords } from "@/lib/format";
 import { markerState, MARKER_META } from "@/lib/marker";
 import type { AssetRow, TaskRow } from "@/lib/types";
 import { Card } from "@/components/ui";
@@ -91,10 +91,10 @@ export function DashboardWorkspace({
   const activeTask = tasks.find((t) => t.id === activeTaskId) ?? null;
 
   return (
-    <div className="space-y-4">
-      <div className="grid grid-cols-1 items-start gap-4 xl:grid-cols-[300px_minmax(0,1fr)_320px]">
-      <div className="order-2 space-y-4 xl:order-1">
-        <Card className="px-5 py-4">
+    <div className="h-full w-full overflow-y-auto bg-zinc-100 xl:overflow-hidden">
+      <div className="flex min-h-full flex-col gap-3 p-3 xl:h-full xl:flex-row xl:gap-0 xl:p-0">
+        <div className="flex flex-col gap-3 xl:w-[320px] xl:shrink-0 xl:gap-0 xl:overflow-y-auto xl:border-r xl:border-zinc-200 xl:bg-white">
+        <Card className="px-5 py-4 xl:rounded-none xl:border-0 xl:shadow-none xl:border-b xl:border-zinc-100">
           <p className="text-xs font-semibold uppercase tracking-wide text-zinc-500">
             Total price
             {activeTask ? ` · ${activeTask.name}` : " · all tasks"}
@@ -110,12 +110,12 @@ export function DashboardWorkspace({
           </p>
         </Card>
 
-        <Card>
+        <Card className="xl:rounded-none xl:border-0 xl:shadow-none xl:border-b xl:border-zinc-100">
           <div className="border-b border-zinc-100 px-5 py-3">
             <h2 className="text-sm font-bold text-zinc-900">Asset distribution</h2>
             <p className="text-xs text-zinc-500">Grouped by Type column</p>
           </div>
-          <ul className="max-h-96 space-y-3 overflow-y-auto px-5 py-4">
+          <ul className="max-h-96 space-y-3 overflow-y-auto px-5 py-4 xl:max-h-none">
             {stats.distribution.length === 0 && (
               <li className="py-6 text-center text-sm text-zinc-400">
                 No assets for this selection.
@@ -146,9 +146,9 @@ export function DashboardWorkspace({
         </Card>
       </div>
 
-      <div className="order-1 space-y-3 xl:order-2">
+      <div className="order-1 flex flex-col gap-3 xl:order-2 xl:min-w-0 xl:flex-1 xl:gap-0">
         {/* Collapsible task selector */}
-        <Card className="p-2">
+        <Card className="p-2 xl:rounded-none xl:border-0 xl:shadow-none xl:border-b xl:border-zinc-200">
           <button
             type="button"
             onClick={() => setSelectorOpen((o) => !o)}
@@ -221,7 +221,7 @@ export function DashboardWorkspace({
         </Card>
 
         {/* Map */}
-        <Card className="overflow-hidden">
+        <Card className="flex min-h-0 flex-1 flex-col overflow-hidden xl:rounded-none xl:border-0 xl:shadow-none">
           <div className="flex flex-wrap items-center justify-between gap-2 border-b border-zinc-100 px-4 py-2.5">
             <MarkerLegend />
             <span className="text-xs font-semibold text-zinc-500">
@@ -230,7 +230,7 @@ export function DashboardWorkspace({
               <span className="text-blue-600">{stats.counts.todo}</span>
             </span>
           </div>
-          <div className="relative h-[62vh] min-h-[440px]">
+          <div className="relative min-h-[55vh] flex-1 xl:min-h-0">
             <MarkersMap
               points={points}
               fitSignal={`${activeTaskId}-${fitSignal}`}
@@ -246,20 +246,17 @@ export function DashboardWorkspace({
             />
 
             {selected && (
-              <div className="pointer-events-none absolute bottom-4 left-1/2 w-[min(94%,460px)] -translate-x-1/2">
+              <div className="pointer-events-none absolute bottom-4 left-1/2 z-[1000] w-[min(94%,480px)] -translate-x-1/2">
                 <div className="pointer-events-auto rounded-2xl border border-zinc-200 bg-white p-4 shadow-2xl">
                   <div className="flex items-start justify-between gap-3">
-                    <div className="min-w-0">
+                    <div className="min-w-0 flex-1">
                       <p className="text-xs font-semibold uppercase tracking-wide text-zinc-400">
                         Marker · No. {selected.seq_no ?? "—"}
                       </p>
                       <p className="truncate text-lg font-bold text-zinc-900">
                         {selected.inventory_id
                           ? `ID-Inventory: ${selected.inventory_id}`
-                          : selected.code}
-                      </p>
-                      <p className="mt-0.5 truncate text-xs text-zinc-500">
-                        {selected.type_text || selected.asset_types?.name || "Type not set"}
+                          : selected.code || "No ID-Inventory yet"}
                       </p>
                     </div>
                     <button
@@ -271,17 +268,56 @@ export function DashboardWorkspace({
                       <X className="h-4 w-4" />
                     </button>
                   </div>
-                  <div className="mt-3 flex flex-wrap items-center justify-between gap-2 border-t border-zinc-100 pt-3">
-                    <span className="inline-flex items-center gap-1.5 text-sm font-semibold text-zinc-700">
-                      <span
-                        className="h-3 w-3 rounded-full"
-                        style={{ background: MARKER_META[markerState(selected)].color }}
-                      />
-                      {MARKER_META[markerState(selected)].label}
-                    </span>
+                  <dl className="mt-3 grid grid-cols-2 gap-x-4 gap-y-2 border-t border-zinc-100 pt-3 text-sm">
+                    <div>
+                      <dt className="text-[11px] font-semibold uppercase tracking-wide text-zinc-400">
+                        Price
+                      </dt>
+                      <dd className="font-bold text-zinc-900">
+                        {formatPrice(selected.price ?? 0)}
+                      </dd>
+                    </div>
+                    <div>
+                      <dt className="text-[11px] font-semibold uppercase tracking-wide text-zinc-400">
+                        Type
+                      </dt>
+                      <dd className="truncate text-zinc-700">
+                        {selected.type_text || selected.asset_types?.name || "Not set"}
+                      </dd>
+                    </div>
+                    <div>
+                      <dt className="text-[11px] font-semibold uppercase tracking-wide text-zinc-400">
+                        Coordinates
+                      </dt>
+                      <dd className="text-zinc-700">
+                        {fmtCoords(selected.lat, selected.lng)}
+                      </dd>
+                    </div>
+                    <div>
+                      <dt className="text-[11px] font-semibold uppercase tracking-wide text-zinc-400">
+                        Status
+                      </dt>
+                      <dd>
+                        <span className="inline-flex items-center gap-1.5 font-semibold text-zinc-700">
+                          <span
+                            className="h-3 w-3 rounded-full"
+                            style={{ background: MARKER_META[markerState(selected)].color }}
+                          />
+                          {MARKER_META[markerState(selected)].label}
+                        </span>
+                      </dd>
+                    </div>
+                  </dl>
+                  {selected.notes && (
+                    <p className="mt-2 line-clamp-2 border-t border-zinc-100 pt-2 text-xs text-zinc-500">
+                      <span className="font-semibold text-zinc-400">Remarks: </span>
+                      {selected.notes}
+                    </p>
+                  )}
+                  <div className="mt-3 flex justify-end border-t border-zinc-100 pt-3">
                     <Link
                       href={`/mobile/record/upsert?asset=${selected.id}`}
-                      className="pointer-events-auto inline-flex items-center gap-1.5 rounded-lg bg-amber-500 px-3 py-1.5 text-sm font-semibold text-zinc-950 hover:bg-amber-400"
+                      className="pointer-events-auto inline-flex items-center gap-1.5 rounded-lg bg-amber-500 px-4 py-2 text-sm font-semibold text-zinc-950 hover:bg-amber-400"
                     >
                       {markerState(selected) === "todo" ? "Inspect" : "Edit"}
                       <CheckCircle2 className="h-4 w-4" />
@@ -294,56 +330,47 @@ export function DashboardWorkspace({
         </Card>
       </div>
 
-      <div className="order-3">
-        <Card>
+      <div className="order-3 flex flex-col gap-3 xl:w-[340px] xl:shrink-0 xl:gap-0 xl:overflow-y-auto xl:border-l xl:border-zinc-200 xl:bg-white">
+        <div className="rounded-xl border border-zinc-200 bg-white px-5 py-4 shadow-sm xl:rounded-none xl:border-0 xl:border-b xl:border-zinc-100 xl:shadow-none">
+          <p className="text-xs font-semibold uppercase tracking-wide text-zinc-500">
+            {activeTaskId === "all" ? "All tasks" : activeTask?.name}
+          </p>
+          <p className="mt-1 text-3xl font-bold text-zinc-900">{stats.total}</p>
+          <p className="text-xs text-zinc-500">
+            marker{stats.total === 1 ? "" : "s"} in view
+          </p>
+        </div>
+        <div className="rounded-xl border border-zinc-200 bg-white shadow-sm xl:flex-1 xl:rounded-none xl:border-0 xl:shadow-none">
           <div className="border-b border-zinc-100 px-5 py-3">
             <h2 className="text-sm font-bold text-zinc-900">Status of each asset</h2>
-            <p className="text-xs text-zinc-500">
-              {activeTaskId === "all" ? "All tasks" : activeTask?.name}
-            </p>
+            <p className="text-xs text-zinc-500">Summary of the selected tasks</p>
           </div>
-          <div className="grid grid-cols-3 gap-2 border-b border-zinc-100 px-4 py-3">
-            {(["todo", "ok", "bad"] as const).map((s) => (
-              <div key={s} className="rounded-lg bg-zinc-50 px-2 py-2 text-center">
-                <p className="text-xl font-bold text-zinc-900">{stats.counts[s]}</p>
-                <p className="text-[11px] font-semibold text-zinc-500">
-                  {MARKER_META[s].label}
-                </p>
+          <div className="space-y-3 p-4">
+            {(
+              [
+                ["ok", "Working"],
+                ["bad", "Not working"],
+                ["todo", "Not yet inspected"],
+              ] as const
+            ).map(([key, label]) => (
+              <div
+                key={key}
+                className="flex items-center gap-3 rounded-xl bg-zinc-50 px-4 py-3"
+              >
+                <span
+                  className="h-3 w-3 shrink-0 rounded-full"
+                  style={{ background: MARKER_META[key].color }}
+                />
+                <span className="flex-1 text-sm font-semibold text-zinc-700">
+                  {label}
+                </span>
+                <span className="text-xl font-bold text-zinc-900">
+                  {stats.counts[key]}
+                </span>
               </div>
             ))}
           </div>
-          <ul className="max-h-[46vh] divide-y divide-zinc-100 overflow-y-auto">
-            {visibleAssets.length === 0 && (
-              <li className="px-5 py-8 text-center text-sm text-zinc-400">
-                No assets for this selection.
-              </li>
-            )}
-            {visibleAssets.slice(0, 200).map((a) => {
-              const s = markerState(a);
-              const meta = MARKER_META[s];
-              return (
-                <li key={a.id} className="flex items-center gap-2.5 px-4 py-2">
-                  <span
-                    className="h-2.5 w-2.5 shrink-0 rounded-full"
-                    style={{ background: meta.color }}
-                  />
-                  <div className="min-w-0 flex-1">
-                    <p className="truncate text-sm font-semibold text-zinc-800">
-                      {a.seq_no || a.inventory_id || a.code}
-                    </p>
-                    <p className="truncate text-xs text-zinc-400">
-                      {a.inventory_id ? `ID: ${a.inventory_id} · ` : ""}
-                      {a.type_text || a.asset_types?.name || "Type not set"}
-                    </p>
-                  </div>
-                  <span className="shrink-0 text-xs font-medium text-zinc-500">
-                    {meta.emoji}
-                  </span>
-                </li>
-              );
-            })}
-          </ul>
-        </Card>
+        </div>
       </div>
 
       </div>

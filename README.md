@@ -39,7 +39,8 @@ supabase/schema.sql   one-time database setup
 
 1. **Supabase project** — create a free project at supabase.com.
 2. **Run the schema** — open *SQL Editor* and run `supabase/schema.sql`,
-   then run `supabase/migration_v2.sql` (adds tasks + import columns).
+   then `supabase/migration_v2.sql` (adds tasks + import columns) and
+   `supabase/migration_v3.sql` (inspection WebP/base64 photo column).
    A sample import file lives at `public/sample-task.csv`.
 3. **Env vars** — copy `.env.example` to `.env.local` and paste your values
    from Supabase → *Project Settings → API*:

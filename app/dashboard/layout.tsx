@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 import { requireViewer } from "@/lib/auth";
 import { DashboardHeader } from "@/components/dashboard/dashboard-header";
+import { DashboardFrame } from "@/components/dashboard/dashboard-frame";
 
 export const dynamic = "force-dynamic";
 
@@ -19,9 +20,7 @@ export default async function DashboardLayout({
         role={viewer.profile.role}
         isAdmin={isAdmin}
       />
-      <main className="mx-auto w-full max-w-[1700px] px-4 py-5">
-        {children}
-      </main>
+      <DashboardFrame>{children}</DashboardFrame>
     </div>
   );
 }

@@ -2,7 +2,6 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { Camera, CheckCircle2, Loader2, Save } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { fileToWebpDataUrl } from "@/lib/image";
@@ -20,7 +19,6 @@ export function RecordForm({
   inspection: InspectionRow | null;
   assetTypes: AssetType[];
 }) {
-  const router = useRouter();
   const supabase = createClient();
 
   const initialTypeId =
@@ -34,9 +32,9 @@ export function RecordForm({
     assetTypes[0]?.id ||
     "";
 
-  const needsIdCapture = Boolean(asset && !asset.inventory_id && !inspection);
-
-  const [step, setStep] = useState(needsIdCapture ? 0 : 1);
+  // Always start with the ID scanner/manual step for a NEW inspection
+  // (editing an existing record goes straight to the details form).
+  const [step, setStep] = useState(inspection ? 1 : 0);
   const [inventoryId, setInventoryId] = useState(asset?.inventory_id ?? "");
   const [typeId, setTypeId] = useState(initialTypeId);
   const [working, setWorking] = useState(inspection?.functional ?? true);
@@ -161,9 +159,9 @@ export function RecordForm({
           <button
             type="button"
             onClick={() => {
-              setDone(false);
-              router.push("/mobile");
-              router.refresh();
+              // hard navigation guarantees a freshly-loaded map with the
+              // updated marker color when the inspector returns
+              window.location.assign("/mobile");
             }}
             className="rounded-lg bg-amber-500 px-4 py-2.5 text-sm font-semibold text-zinc-950 hover:bg-amber-400"
           >

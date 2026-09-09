@@ -123,7 +123,7 @@ export function DashboardWorkspace({
   return (
     <div className="h-full w-full overflow-y-auto bg-zinc-100 xl:overflow-hidden">
       <div className="flex min-h-full flex-col gap-3 p-3 xl:h-full xl:flex-row xl:gap-0 xl:p-0">
-        <div className="flex flex-col gap-3 xl:w-[320px] xl:shrink-0 xl:gap-0 xl:overflow-y-auto xl:border-r xl:border-zinc-200 xl:bg-white">
+        <div className="flex flex-col gap-3 xl:w-[260px] xl:shrink-0 xl:gap-0 xl:overflow-y-auto xl:border-r xl:border-zinc-200 xl:bg-white">
         <Card className="px-5 py-4 xl:rounded-none xl:border-0 xl:shadow-none xl:border-b xl:border-zinc-100">
           <p className="text-xs font-semibold uppercase tracking-wide text-zinc-500">
             Total price
@@ -284,7 +284,7 @@ export function DashboardWorkspace({
 
       {/* Selected marker details drawer (desktop) */}
       {selected && (
-        <div className="hidden flex-col border-l border-zinc-200 bg-white xl:flex xl:w-[380px] xl:shrink-0 xl:overflow-y-auto">
+        <div className="hidden flex-col border-l border-zinc-200 bg-white xl:flex xl:w-[320px] xl:shrink-0 xl:overflow-y-auto">
           <div className="flex items-center justify-between border-b border-zinc-200 px-4 py-3">
             <h3 className="text-sm font-bold text-zinc-900">Marker details</h3>
             <button
@@ -391,7 +391,7 @@ export function DashboardWorkspace({
         </div>
       )}
 
-      <div className="flex flex-col gap-3 xl:w-[340px] xl:shrink-0 xl:gap-0 xl:overflow-y-auto xl:border-l xl:border-zinc-200 xl:bg-white">
+      <div className="flex flex-col gap-3 xl:w-[280px] xl:shrink-0 xl:gap-0 xl:overflow-y-auto xl:border-l xl:border-zinc-200 xl:bg-white">
         <div className="rounded-xl border border-zinc-200 bg-white px-5 py-4 shadow-sm xl:rounded-none xl:border-0 xl:border-b xl:border-zinc-100 xl:shadow-none">
           <p className="text-xs font-semibold uppercase tracking-wide text-zinc-500">
             {activeTaskId === "all" ? "All tasks" : activeTask?.name}

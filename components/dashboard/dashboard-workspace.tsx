@@ -252,14 +252,6 @@ export function DashboardWorkspace({
 
         {/* Map */}
         <Card className="isolate flex min-h-0 flex-1 flex-col overflow-hidden rounded-none xl:border-0 xl:shadow-none">
-          <div className="flex flex-wrap items-center justify-between gap-2 border-b border-zinc-100 px-4 py-2.5">
-            <MarkerLegend />
-            <span className="text-xs font-semibold text-zinc-500">
-              <span className="text-red-600">{stats.counts.bad}</span> ·{" "}
-              <span className="text-green-600">{stats.counts.ok}</span> ·{" "}
-              <span className="text-blue-600">{stats.counts.todo}</span>
-            </span>
-          </div>
           <div className="relative min-h-[55vh] flex-1 xl:min-h-0">
             <MarkersMap
               points={points}
@@ -272,6 +264,10 @@ export function DashboardWorkspace({
               onSelect={(p) => selectMarker(p.id)}
               selectedId={selected?.id ?? null}
             />
+
+            <div className="pointer-events-none absolute bottom-3 left-3 z-[1000] rounded-lg border border-zinc-200 bg-white/95 px-3 py-1.5 shadow-sm">
+              <MarkerLegend />
+            </div>
 
             {loadingDetail && (
               <div className="pointer-events-none absolute right-3 top-3 z-[1000] rounded-full bg-zinc-900/80 px-3 py-1.5 text-xs font-semibold text-white">

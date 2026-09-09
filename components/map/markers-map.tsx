@@ -117,19 +117,38 @@ export function MarkersMap({
   );
 }
 
-/** Small legend row used above/below maps. */
-export function MarkerLegend() {
+/** Small legend used above/below maps. `vertical` stacks the entries. */
+export function MarkerLegend({ vertical = false }: { vertical?: boolean }) {
+  const items = [
+    { color: "#3b82f6", label: "Not inspected" },
+    { color: "#22c55e", label: "Working" },
+    { color: "#ef4444", label: "Not working" },
+  ];
+  const Item = ({ color, label }: { color: string; label: string }) => (
+    <span className="inline-flex items-center gap-1.5">
+      <span
+        className="h-3 w-3 shrink-0 rounded-full border-2 border-white shadow"
+        style={{ background: color }}
+      />
+      {label}
+    </span>
+  );
+
+  if (vertical) {
+    return (
+      <div className="flex flex-col items-start gap-1.5 text-xs text-zinc-600">
+        {items.map((i) => (
+          <Item key={i.label} {...i} />
+        ))}
+      </div>
+    );
+  }
+
   return (
     <div className="flex flex-wrap items-center gap-3 text-xs text-zinc-600">
-      <span className="inline-flex items-center gap-1.5">
-        <span className="h-3 w-3 rounded-full border-2 border-white bg-blue-500 shadow" /> Not inspected
-      </span>
-      <span className="inline-flex items-center gap-1.5">
-        <span className="h-3 w-3 rounded-full border-2 border-white bg-green-500 shadow" /> Working
-      </span>
-      <span className="inline-flex items-center gap-1.5">
-        <span className="h-3 w-3 rounded-full border-2 border-white bg-red-500 shadow" /> Not working
-      </span>
+      {items.map((i) => (
+        <Item key={i.label} {...i} />
+      ))}
     </div>
   );
 }

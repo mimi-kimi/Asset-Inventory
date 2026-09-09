@@ -265,8 +265,8 @@ export function DashboardWorkspace({
               selectedId={selected?.id ?? null}
             />
 
-            <div className="pointer-events-none absolute bottom-3 left-3 z-[1000] rounded-lg border border-zinc-200 bg-white/95 px-3 py-1.5 shadow-sm">
-              <MarkerLegend />
+            <div className="pointer-events-none absolute bottom-3 left-3 z-[1000] rounded-lg border border-zinc-200 bg-white/95 px-3 py-2 shadow-sm">
+              <MarkerLegend vertical />
             </div>
 
             {loadingDetail && (

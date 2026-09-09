@@ -36,15 +36,13 @@ export default async function MobileProfilePage() {
       </Card>
 
       <Card className="divide-y divide-zinc-100">
-        {isAdmin && (
-          <Link
-            href="/dashboard"
-            className="flex items-center gap-3 px-5 py-4 text-sm font-semibold text-zinc-700 hover:bg-zinc-50"
-          >
-            <MonitorSmartphone className="h-5 w-5 text-zinc-400" />
-            Open desktop dashboard
-          </Link>
-        )}
+        <Link
+          href="/dashboard"
+          className="flex items-center gap-3 px-5 py-4 text-sm font-semibold text-zinc-700 hover:bg-zinc-50"
+        >
+          <MonitorSmartphone className="h-5 w-5 text-zinc-400" />
+          Open desktop dashboard
+        </Link>
         <div className="flex items-center justify-between px-5 py-3">
           <SignOutButton compact={false} />
         </div>

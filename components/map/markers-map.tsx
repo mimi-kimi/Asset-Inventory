@@ -34,6 +34,7 @@ export function MarkersMap({
   onSelect,
   className,
   selectedId,
+  emptyHint,
 }: {
   points: MapPoint[];
   /** change this value to force the map to zoom to the current points */
@@ -41,6 +42,8 @@ export function MarkersMap({
   onSelect?: (point: MapPoint) => void;
   className?: string;
   selectedId?: string | null;
+  /** hint shown centered over the map when there are no points */
+  emptyHint?: string;
 }) {
   const [ready, setReady] = useState(false);
   const [map, setMap] = useState<L.Map | null>(null);
@@ -65,21 +68,17 @@ export function MarkersMap({
     );
   }
 
-  if (points.length === 0) {
-    return (
-      <div className="flex h-full w-full flex-col items-center justify-center gap-2 rounded-xl bg-zinc-200 text-sm text-zinc-500">
-        🗺️ No markers for the selected task.
-      </div>
-    );
-  }
-
-  const center: [number, number] = [points[0].lat, points[0].lng];
+  const hasPoints = points.length > 0;
+  const center: [number, number] = hasPoints
+    ? [points[0].lat, points[0].lng]
+    : [14.5995, 120.9842];
+  const zoom = hasPoints ? 12 : 6;
 
   return (
-    <div className={className ?? "h-full w-full overflow-hidden rounded-xl"}>
+    <div className={className ?? "relative h-full w-full overflow-hidden rounded-xl"}>
       <MapContainer
         center={center}
-        zoom={12}
+        zoom={zoom}
         scrollWheelZoom
         style={{ height: "100%", width: "100%" }}
         ref={(m) => {
@@ -106,6 +105,14 @@ export function MarkersMap({
           </Marker>
         ))}
       </MapContainer>
+
+      {!hasPoints && emptyHint && (
+        <div className="pointer-events-none absolute inset-0 z-[500] flex items-center justify-center p-4">
+          <div className="rounded-full border border-zinc-200 bg-white/95 px-4 py-2 text-center text-sm font-semibold text-zinc-600 shadow-lg">
+            🗺️ {emptyHint}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -18,10 +18,11 @@ lights, stop lights, road lamps and more.
 ## Features
 
 - Email/password auth with two roles: **ADMIN** and **INSPECTOR**
+- **Tasks page** (`/dashboard/tasks`): import CSV/Excel batches + list all imported tasks with progress
 - **Task import** (CSV/Excel): `No, ID-Inventory, Position_X(lng), Position_Y(lat), Price, Type, Remarks`
-- **Map dashboard** (desktop): colored markers (🔵 not inspected · 🟢 working · 🔴 not working), task selector, total price + asset distribution panel, status panel
+- **Map dashboard** (desktop): map always visible under the header — colored markers (🔵 not inspected · 🟢 working · 🔴 not working), task selector, total price + asset distribution panel, status panel
 - **Mobile app** with 4 tabs — Map · Task · Record · Profile — and a **QR-scanner/manual** inspection flow (plate ID → asset type → working? → remarks)
-- Export inspected data as CSV from the Task tab
+- **Desktop ↔ Mobile switch buttons** in both directions (header "Mobile" button ↔ mobile app "Desktop view")
 - Asset catalog with types (signboards, signals, lamps, guardrails, …)
 - Row Level Security on every table; photos in a public Supabase bucket
 
@@ -89,7 +90,7 @@ supabase/schema.sql   one-time database setup
 ## Known limitations (v1/v2)
 
 - No offline mode (field app needs a connection).
-- Landings: desktops go to `/dashboard`; phones go to `/mobile`.
+- Landings: desktops go to `/dashboard`; phones go to `/mobile` (toggle buttons both ways).
 - Import upsert is sequential (fine for typical task sizes).
 - Old v1 features (asset CRUD, photo uploads) remain under the dashboard
   manage menu and the legacy `/inspect` routes.

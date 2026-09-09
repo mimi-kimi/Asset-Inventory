@@ -8,11 +8,11 @@ import {
   ClipboardList,
   Cone,
   LayoutDashboard,
+  ListChecks,
   LogOut,
   MonitorSmartphone,
   Smartphone,
   Tags,
-  Upload,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { cn } from "@/lib/format";
@@ -27,6 +27,7 @@ const MANAGE_LINKS: Array<{
   adminOnly?: boolean;
 }> = [
   { href: "/dashboard", label: "Map dashboard", icon: LayoutDashboard },
+  { href: "/dashboard/tasks", label: "Tasks", icon: ListChecks },
   { href: "/dashboard/assets", label: "Assets", icon: Cone },
   { href: "/dashboard/inspections", label: "Inspections", icon: ClipboardList },
   { href: "/dashboard/types", label: "Asset types", icon: Tags, adminOnly: true },
@@ -59,14 +60,6 @@ export function DashboardHeader({
     }
   }
 
-  function openImport() {
-    if (pathname === "/dashboard") {
-      window.dispatchEvent(new CustomEvent("rat:open-import"));
-    } else {
-      router.push("/dashboard?import=1");
-    }
-  }
-
   return (
     <header className="sticky top-0 z-40 border-b border-zinc-200 bg-white/95 backdrop-blur">
       <div className="mx-auto flex h-16 w-full max-w-[1700px] items-center justify-between gap-3 px-4">
@@ -80,17 +73,19 @@ export function DashboardHeader({
         </h1>
 
         <div className="flex shrink-0 items-center gap-2">
-          {isAdmin && (
-            <button
-              type="button"
-              onClick={openImport}
-              className="inline-flex items-center gap-1.5 rounded-lg bg-amber-500 px-3 py-2 text-sm font-semibold text-zinc-950 hover:bg-amber-400"
-              title="Import a task from CSV / Excel"
-            >
-              <Upload className="h-4 w-4" />
-              <span className="hidden sm:inline">Task import</span>
-            </button>
-          )}
+          <Link
+            href="/dashboard/tasks"
+            className={cn(
+              "inline-flex items-center gap-1.5 rounded-lg px-3 py-2 text-sm font-semibold transition-colors",
+              pathname.startsWith("/dashboard/tasks")
+                ? "bg-amber-100 text-amber-800"
+                : "bg-amber-500 text-zinc-950 hover:bg-amber-400",
+            )}
+            title="Import and manage tasks"
+          >
+            <ListChecks className="h-4 w-4" />
+            <span className="hidden sm:inline">Task</span>
+          </Link>
 
           <Link
             href="/mobile"

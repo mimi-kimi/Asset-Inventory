@@ -1,15 +1,14 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import Link from "next/link";
-import { CheckCircle2, ChevronDown, ChevronUp, Layers, Plus, X } from "lucide-react";
+import { CheckCircle2, ChevronDown, ChevronUp, Layers, X } from "lucide-react";
 import { cn } from "@/lib/format";
 import { markerState, MARKER_META } from "@/lib/marker";
 import type { AssetRow, TaskRow } from "@/lib/types";
-import { Card, EmptyState } from "@/components/ui";
+import { Card } from "@/components/ui";
 import { MarkersMap, MarkerLegend } from "@/components/map/markers-map";
 import type { MapPoint } from "@/components/map/markers-map";
-import { TaskImportDialog } from "@/components/dashboard/task-import-dialog";
 
 const ACTIVE_KEY = "rat-active-task";
 
@@ -22,13 +21,9 @@ function formatPrice(n: number): string {
 export function DashboardWorkspace({
   tasks,
   assets,
-  isAdmin,
-  initialOpenImport,
 }: {
   tasks: TaskRow[];
   assets: AssetRow[];
-  isAdmin: boolean;
-  initialOpenImport: boolean;
 }) {
   const [activeTaskId, setActiveTaskId] = useState<string | "all">(() => {
     if (typeof window === "undefined") return "all";
@@ -37,18 +32,8 @@ export function DashboardWorkspace({
     return tasks[0]?.id ?? "all";
   });
   const [selectorOpen, setSelectorOpen] = useState(false);
-  const [importOpen, setImportOpen] = useState(initialOpenImport);
   const [selected, setSelected] = useState<AssetRow | null>(null);
   const [fitSignal, setFitSignal] = useState(0);
-
-  /* task import event from the header button */
-  useEffect(() => {
-    function handler() {
-      setImportOpen(true);
-    }
-    window.addEventListener("rat:open-import", handler);
-    return () => window.removeEventListener("rat:open-import", handler);
-  }, []);
 
   function chooseTask(id: string | "all") {
     setActiveTaskId(id);
@@ -104,42 +89,6 @@ export function DashboardWorkspace({
   }, [visibleAssets]);
 
   const activeTask = tasks.find((t) => t.id === activeTaskId) ?? null;
-
-  if (tasks.length === 0) {
-    return (
-      <div className="space-y-4">
-        <Card className="p-6">
-          <EmptyState
-            title="No imported tasks yet"
-            hint={
-              isAdmin
-                ? "Import a CSV/Excel file (with longitude & latitude) to drop markers on the map."
-                : "Ask an admin to import a task — the markers will appear here."
-            }
-            action={
-              isAdmin ? (
-                <button
-                  type="button"
-                  onClick={() => setImportOpen(true)}
-                  className="inline-flex items-center gap-2 rounded-lg bg-amber-500 px-4 py-2 text-sm font-semibold text-zinc-950 hover:bg-amber-400"
-                >
-                  <Plus className="h-4 w-4" /> Import a task
-                </button>
-              ) : undefined
-            }
-          />
-        </Card>
-        <TaskImportDialog
-          open={importOpen}
-          onClose={() => setImportOpen(false)}
-          onImported={() => {
-            setImportOpen(false);
-            window.location.reload();
-          }}
-        />
-      </div>
-    );
-  }
 
   return (
     <div className="space-y-4">
@@ -255,6 +204,18 @@ export function DashboardWorkspace({
                   {t.name} ({t.row_count})
                 </button>
               ))}
+              {tasks.length === 0 && (
+                <p className="w-full px-2 py-3 text-center text-xs text-zinc-500">
+                  No tasks yet.{" "}
+                  <Link
+                    href="/dashboard/tasks"
+                    className="font-semibold text-amber-700 underline"
+                  >
+                    Open the Task page
+                  </Link>{" "}
+                  to import markers.
+                </p>
+              )}
             </div>
           )}
         </Card>
@@ -273,6 +234,11 @@ export function DashboardWorkspace({
             <MarkersMap
               points={points}
               fitSignal={`${activeTaskId}-${fitSignal}`}
+              emptyHint={
+                tasks.length === 0
+                  ? "No tasks yet — import one from the Task page"
+                  : "No markers in this selection"
+              }
               onSelect={(p) =>
                 setSelected(visibleAssets.find((a) => a.id === p.id) ?? null)
               }
@@ -381,15 +347,6 @@ export function DashboardWorkspace({
       </div>
 
       </div>
-
-      <TaskImportDialog
-        open={importOpen}
-        onClose={() => setImportOpen(false)}
-        onImported={() => {
-          setImportOpen(false);
-          window.location.reload();
-        }}
-      />
     </div>
   );
 }

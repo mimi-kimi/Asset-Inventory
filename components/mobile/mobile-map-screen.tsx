@@ -67,7 +67,7 @@ export function MobileMapScreen({
   }
 
   return (
-    <div className="flex h-dvh flex-col">
+    <div className="flex h-[calc(100dvh-8rem)] min-h-[480px] flex-col">
       <div className="flex items-center justify-between gap-2 border-b border-zinc-200 bg-white px-4 py-3">
         <button
           type="button"

@@ -1,14 +1,15 @@
 import type { Metadata } from "next";
+import { requireViewer } from "@/lib/auth";
 import { describeError } from "@/lib/format";
 import { queryTaskAssets, queryTasks } from "@/lib/queries";
-import { requireViewer } from "@/lib/auth";
-import { DashboardWorkspace } from "@/components/dashboard/dashboard-workspace";
+import { TasksManager } from "@/components/dashboard/tasks-manager";
 
 export const dynamic = "force-dynamic";
-export const metadata: Metadata = { title: "Map dashboard" };
+export const metadata: Metadata = { title: "Tasks" };
 
-export default async function DashboardPage() {
-  await requireViewer();
+export default async function DashboardTasksPage() {
+  const viewer = await requireViewer();
+  const isAdmin = viewer.profile.role === "ADMIN";
 
   let dbError: string | null = null;
   let tasks: Awaited<ReturnType<typeof queryTasks>> = [];
@@ -27,5 +28,5 @@ export default async function DashboardPage() {
     );
   }
 
-  return <DashboardWorkspace tasks={tasks} assets={assets} />;
+  return <TasksManager tasks={tasks} assets={assets} isAdmin={isAdmin} />;
 }

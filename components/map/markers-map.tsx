@@ -75,7 +75,7 @@ export function MarkersMap({
   const zoom = hasPoints ? 12 : 6;
 
   return (
-    <div className={className ?? "relative h-full w-full overflow-hidden rounded-xl"}>
+    <div className={className ?? "relative h-full w-full overflow-hidden"}>
       <MapContainer
         center={center}
         zoom={zoom}

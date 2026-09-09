@@ -176,7 +176,7 @@ export function DashboardWorkspace({
         </Card>
       </div>
 
-      <div className="order-1 flex flex-col gap-3 xl:order-2 xl:min-w-0 xl:flex-1 xl:gap-0">
+      <div className="flex flex-col gap-3 xl:min-w-0 xl:flex-1 xl:gap-0">
         {/* Collapsible task selector */}
         <Card className="p-2 xl:rounded-none xl:border-0 xl:shadow-none xl:border-b xl:border-zinc-200">
           <button
@@ -391,7 +391,7 @@ export function DashboardWorkspace({
         </div>
       )}
 
-      <div className="order-3 flex flex-col gap-3 xl:w-[340px] xl:shrink-0 xl:gap-0 xl:overflow-y-auto xl:border-l xl:border-zinc-200 xl:bg-white">
+      <div className="flex flex-col gap-3 xl:w-[340px] xl:shrink-0 xl:gap-0 xl:overflow-y-auto xl:border-l xl:border-zinc-200 xl:bg-white">
         <div className="rounded-xl border border-zinc-200 bg-white px-5 py-4 shadow-sm xl:rounded-none xl:border-0 xl:border-b xl:border-zinc-100 xl:shadow-none">
           <p className="text-xs font-semibold uppercase tracking-wide text-zinc-500">
             {activeTaskId === "all" ? "All tasks" : activeTask?.name}

@@ -13,6 +13,14 @@ export interface Profile {
   role: Role;
 }
 
+export interface TaskRow {
+  id: string;
+  name: string;
+  imported_by: string | null;
+  row_count: number;
+  created_at: string;
+}
+
 export interface AssetType {
   id: string;
   code: string;
@@ -35,6 +43,18 @@ export interface AssetRow {
   notes: string | null;
   created_at: string;
   asset_types?: Pick<AssetType, "id" | "code" | "name" | "icon"> | null;
+  /* v2 task/import fields */
+  task_id?: string | null;
+  seq_no?: string | null;
+  inventory_id?: string | null;
+  price?: number | null;
+  type_text?: string | null;
+  tasks?: Pick<TaskRow, "id" | "name"> | null;
+  inspections?: Array<{
+    id: string;
+    functional: boolean;
+    inspected_at: string;
+  }> | null;
 }
 
 export interface InspectionPhoto {
@@ -63,3 +83,4 @@ export interface InspectionRow {
   } | null;
   inspection_photos?: InspectionPhoto[];
 }
+

@@ -18,11 +18,11 @@ lights, stop lights, road lamps and more.
 ## Features
 
 - Email/password auth with two roles: **ADMIN** and **INSPECTOR**
+- **Task import** (CSV/Excel): `No, ID-Inventory, Position_X(lng), Position_Y(lat), Price, Type, Remarks`
+- **Map dashboard** (desktop): colored markers (🔵 not inspected · 🟢 working · 🔴 not working), task selector, total price + asset distribution panel, status panel
+- **Mobile app** with 4 tabs — Map · Task · Record · Profile — and a **QR-scanner/manual** inspection flow (plate ID → asset type → working? → remarks)
+- Export inspected data as CSV from the Task tab
 - Asset catalog with types (signboards, signals, lamps, guardrails, …)
-- Field inspections: pick or register an asset → rate condition →
-  functional? → remarks → up to 4 photos → GPS coordinates
-- Desktop dashboard: KPI cards, charts (Recharts), Leaflet map, searchable
-  asset/inspection tables, CSV export
 - Row Level Security on every table; photos in a public Supabase bucket
 
 ## Project layout
@@ -37,8 +37,9 @@ supabase/schema.sql   one-time database setup
 ## Local setup
 
 1. **Supabase project** — create a free project at supabase.com.
-2. **Run the schema** — open *SQL Editor* and run everything in
-   `supabase/schema.sql` (creates tables, RLS, storage bucket + seed types).
+2. **Run the schema** — open *SQL Editor* and run `supabase/schema.sql`,
+   then run `supabase/migration_v2.sql` (adds tasks + import columns).
+   A sample import file lives at `public/sample-task.csv`.
 3. **Env vars** — copy `.env.example` to `.env.local` and paste your values
    from Supabase → *Project Settings → API*:
    ```bash
@@ -85,9 +86,13 @@ supabase/schema.sql   one-time database setup
 - **Sign in loops** — email confirmation is on; confirm the email or disable
   confirmation in Supabase Auth settings for development.
 
-## Known limitations (v1)
+## Known limitations (v1/v2)
 
 - No offline mode (field app needs a connection).
-- Asset photos are optional single-image; inspection photos up to 4.
+- Landings: desktops go to `/dashboard`; phones go to `/mobile`.
+- Import upsert is sequential (fine for typical task sizes).
+- Old v1 features (asset CRUD, photo uploads) remain under the dashboard
+  manage menu and the legacy `/inspect` routes.
 - Role management is via SQL (no admin UI yet).
+- Login left panel background image: place any photo at `public/login-bg.jpg`.
 

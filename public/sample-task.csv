@@ -1,0 +1,6 @@
+No,ID-Inventory,Position_X,Position_Y,Price,Type,Remarks
+1,INV-0001,120.984222,14.599512,12500.00,Traffic Light,Corner of Rizal Ave
+2,INV-0002,120.985000,14.600000,3500.00,Traffic Signboard,Faded paint
+3,,120.986000,14.601000,5000.00,Road Lamp,Replace bulb
+4,,120.987000,14.602000,800.00,Delineator,
+5,INV-0003,120.988000,14.603000,2500.00,Stop Light,Check wiring

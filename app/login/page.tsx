@@ -15,7 +15,18 @@ export default async function LoginPage() {
   return (
     <main className="flex min-h-dvh">
       {/* Left marketing panel — hidden on small screens (inspectors log in on phones) */}
-      <section className="relative hidden flex-1 flex-col justify-between overflow-hidden bg-zinc-950 p-10 text-zinc-200 lg:flex">
+      <section className="relative hidden flex-1 flex-col justify-between overflow-hidden p-10 text-zinc-100 lg:flex">
+        {/* Login background photo — drop your image at public/login-bg.jpg */}
+        <div
+          aria-hidden
+          className="absolute inset-0 bg-zinc-900"
+          style={{
+            backgroundImage: "url(/login-bg.jpg)",
+            backgroundSize: "cover",
+            backgroundPosition: "center",
+          }}
+        />
+        <div aria-hidden className="absolute inset-0 bg-zinc-950/75" />
         <div
           aria-hidden
           className="pointer-events-none absolute -right-24 -top-24 h-96 w-96 rounded-full bg-amber-500/20 blur-3xl"
@@ -33,17 +44,17 @@ export default async function LoginPage() {
           </div>
         </div>
         <div className="relative max-w-md">
-          <h1 className="text-3xl font-bold leading-tight text-white">
+          <h1 className="text-3xl font-bold leading-tight text-white drop-shadow">
             Inventory &amp; inspection for the assets that keep roads safe.
           </h1>
-          <ul className="mt-6 space-y-3 text-sm text-zinc-300">
+          <ul className="mt-6 space-y-3 text-sm text-zinc-200">
             <li>🪧 Traffic signboards, 🚦 traffic lights &amp; stop lights</li>
             <li>💡 Road lamps and other street furniture</li>
             <li>📱 On-site inspections from a phone camera + GPS</li>
-            <li>📊 Desktop dashboard with maps, charts and reports</li>
+            <li>🗺️ Import task lists and see every marker on the map</li>
           </ul>
         </div>
-        <p className="relative text-xs text-zinc-500">
+        <p className="relative text-xs text-zinc-400">
           Powered by Next.js · Supabase · Vercel
         </p>
       </section>

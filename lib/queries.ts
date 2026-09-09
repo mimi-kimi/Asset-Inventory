@@ -1,7 +1,7 @@
 import "server-only";
 
 import { createClient } from "@/lib/supabase/server";
-import type { AssetRow, AssetType, InspectionRow } from "@/lib/types";
+import type { AssetRow, AssetType, InspectionRow, TaskRow } from "@/lib/types";
 
 /**
  * Server-side data helpers. These use the signed-in user's session cookie,
@@ -116,4 +116,56 @@ export async function fetchInspectorNames(): Promise<
     map.set(p.id, p.full_name);
   }
   return map;
+}
+
+/** Imported CSV/Excel work batches, newest first. */
+export async function queryTasks(): Promise<TaskRow[]> {
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("tasks")
+    .select("id, name, imported_by, row_count, created_at")
+    .order("created_at", { ascending: false })
+    .limit(100);
+  if (error) throw error;
+  return (data ?? []) as TaskRow[];
+}
+
+/**
+ * All task/import assets with their inspection history embedded.
+ * Marker colors are derived in code from inspections.
+ */
+export async function queryTaskAssets(): Promise<AssetRow[]> {
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("assets")
+    .select("*, tasks(id, name), inspections(id, functional, inspected_at)")
+    .not("task_id", "is", null)
+    .order("created_at", { ascending: false })
+    .limit(20000);
+  if (error) throw error;
+  return (data ?? []) as AssetRow[];
+}
+
+export async function queryTaskById(id: string): Promise<TaskRow | null> {
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("tasks")
+    .select("id, name, imported_by, row_count, created_at")
+    .eq("id", id)
+    .maybeSingle();
+  if (error) throw error;
+  return (data as TaskRow | null) ?? null;
+}
+
+export async function queryAssetWithInspectionsById(
+  id: string,
+): Promise<AssetRow | null> {
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("assets")
+    .select("*, asset_types(id, code, name, icon), inspections(id, functional, inspected_at)")
+    .eq("id", id)
+    .maybeSingle();
+  if (error) throw error;
+  return (data as AssetRow | null) ?? null;
 }

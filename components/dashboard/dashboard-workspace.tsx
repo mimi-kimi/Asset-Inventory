@@ -251,7 +251,7 @@ export function DashboardWorkspace({
         </Card>
 
         {/* Map */}
-        <Card className="isolate flex min-h-0 flex-1 flex-col overflow-hidden rounded-none xl:border-0 xl:shadow-none">
+        <div className="isolate flex min-h-0 flex-1 flex-col overflow-hidden rounded-none border-0 bg-white shadow-none">
           <div className="relative min-h-[55vh] flex-1 xl:min-h-0">
             <MarkersMap
               points={points}
@@ -275,7 +275,7 @@ export function DashboardWorkspace({
               </div>
             )}
           </div>
-        </Card>
+        </div>
       </div>
 
       {/* Selected marker details drawer (desktop) */}

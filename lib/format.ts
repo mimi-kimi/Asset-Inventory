@@ -93,6 +93,28 @@ export function initials(name: string | null | undefined): string {
   return (first + second).toUpperCase();
 }
 
+export function describeError(
+  err: unknown,
+  fallback = "Unexpected error.",
+): string {
+  if (err && typeof err === "object") {
+    const e = err as {
+      message?: unknown;
+      code?: unknown;
+      details?: unknown;
+      hint?: unknown;
+    };
+    if (typeof e.message === "string" && e.message) {
+      const parts = [e.message];
+      if (typeof e.code === "string" && e.code) parts.push(`(${e.code})`);
+      if (typeof e.details === "string" && e.details) parts.push(e.details);
+      if (typeof e.hint === "string" && e.hint) parts.push(`Hint: ${e.hint}`);
+      return parts.join(" ");
+    }
+  }
+  return err instanceof Error && err.message ? err.message : fallback;
+}
+
 export function downloadFile(filename: string, content: string): void {
   const blob = new Blob([content], { type: "text/csv;charset=utf-8" });
   const url = URL.createObjectURL(blob);

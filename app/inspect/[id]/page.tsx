@@ -3,7 +3,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ArrowLeft, MapPin } from "lucide-react";
 import { requireViewer } from "@/lib/auth";
-import { queryInspectionById } from "@/lib/queries";
+import { queryInspectionById, fetchInspectorNames } from "@/lib/queries";
 import { CONDITION_META, fmtCoords, fmtDateTime } from "@/lib/format";
 import { Card } from "@/components/ui";
 import { PhotoGrid } from "@/components/photo-grid";
@@ -18,8 +18,13 @@ export default async function InspectDetailPage({
   const { id } = await params;
 
   let inspection: Awaited<ReturnType<typeof queryInspectionById>> = null;
+  let inspectorName: string | null = null;
   try {
     inspection = await queryInspectionById(id);
+    if (inspection) {
+      const names = await fetchInspectorNames();
+      inspectorName = names.get(inspection.inspector_id) ?? null;
+    }
   } catch {
     inspection = null;
   }
@@ -106,7 +111,7 @@ export default async function InspectDetailPage({
 
       <p className="text-center text-xs text-zinc-400">
         Reported {fmtDateTime(inspection.inspected_at)} by{" "}
-        {inspection.profiles?.full_name ?? "you"}
+        {inspectorName ?? "you"}
       </p>
     </div>
   );

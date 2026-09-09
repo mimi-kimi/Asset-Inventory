@@ -3,8 +3,8 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ArrowLeft, CheckCircle2, MapPin, XCircle } from "lucide-react";
 import { requireViewer } from "@/lib/auth";
-import { queryInspectionById } from "@/lib/queries";
-import { CONDITION_META, fmtCoords, fmtDateTime } from "@/lib/format";
+import { queryInspectionById, fetchInspectorNames } from "@/lib/queries";
+import { CONDITION_META, describeError, fmtCoords, fmtDateTime } from "@/lib/format";
 import { Card, CardHeader } from "@/components/ui";
 import { PhotoGrid } from "@/components/photo-grid";
 
@@ -20,11 +20,16 @@ export default async function InspectionDetailPage({
   const { id } = await params;
 
   let inspection: Awaited<ReturnType<typeof queryInspectionById>> = null;
+  let inspectorName: string | null = null;
   let dbError: string | null = null;
   try {
     inspection = await queryInspectionById(id);
+    if (inspection) {
+      const names = await fetchInspectorNames();
+      inspectorName = names.get(inspection.inspector_id) ?? null;
+    }
   } catch (err) {
-    dbError = err instanceof Error ? err.message : "Could not load inspection.";
+    dbError = describeError(err);
   }
   if (dbError || !inspection) notFound();
 
@@ -135,7 +140,7 @@ export default async function InspectionDetailPage({
                 <dt className="text-xs font-semibold uppercase tracking-wide text-zinc-500">
                   Inspector
                 </dt>
-                <dd>{inspection.profiles?.full_name ?? "Unknown"}</dd>
+                <dd>{inspectorName ?? "Unknown"}</dd>
               </div>
               <div>
                 <dt className="text-xs font-semibold uppercase tracking-wide text-zinc-500">

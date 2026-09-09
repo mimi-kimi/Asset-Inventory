@@ -35,7 +35,7 @@ export async function queryInspections(
   const { data, error } = await supabase
     .from("inspections")
     .select(
-      "*, assets(id, code, location, lat, lng, asset_types(id, code, name, icon)), profiles(id, full_name), inspection_photos(id, inspection_id, photo_url)",
+      "*, assets(id, code, location, lat, lng, asset_types(id, code, name, icon)), inspection_photos(id, inspection_id, photo_url)",
     )
     .order("inspected_at", { ascending: false })
     .limit(limit);
@@ -50,7 +50,7 @@ export async function queryInspectionById(
   const { data, error } = await supabase
     .from("inspections")
     .select(
-      "*, assets(id, code, location, lat, lng, asset_types(id, code, name, icon)), profiles(id, full_name), inspection_photos(id, inspection_id, photo_url)",
+      "*, assets(id, code, location, lat, lng, asset_types(id, code, name, icon)), inspection_photos(id, inspection_id, photo_url)",
     )
     .eq("id", id)
     .maybeSingle();
@@ -94,4 +94,26 @@ export async function countInspectors(): Promise<number> {
     .eq("role", "INSPECTOR");
   if (error) throw error;
   return count ?? 0;
+}
+
+/**
+ * Display names for users. Loaded separately instead of an embedded join
+ * because PostgREST cannot relate inspections → profiles (they are only
+ * linked through the internal auth.users schema). RLS applies: admins see
+ * everyone, inspectors see their own row.
+ */
+export async function fetchInspectorNames(): Promise<
+  Map<string, string | null>
+> {
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("profiles")
+    .select("id, full_name")
+    .order("full_name");
+  if (error) throw error;
+  const map = new Map<string, string | null>();
+  for (const p of (data ?? []) as { id: string; full_name: string | null }[]) {
+    map.set(p.id, p.full_name);
+  }
+  return map;
 }

@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { requireAdmin } from "@/lib/auth";
 import { queryAssetTypes } from "@/lib/queries";
+import { describeError } from "@/lib/format";
 import { AssetTypeManager } from "@/components/dashboard/asset-type-manager";
 
 export const dynamic = "force-dynamic";
@@ -13,7 +14,7 @@ export default async function AssetTypesPage() {
   try {
     types = await queryAssetTypes();
   } catch (err) {
-    dbError = err instanceof Error ? err.message : "Could not load asset types.";
+    dbError = describeError(err);
   }
 
   return (

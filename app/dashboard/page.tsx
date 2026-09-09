@@ -11,11 +11,12 @@ import {
 import { requireViewer } from "@/lib/auth";
 import {
   countInspectors,
+  fetchInspectorNames,
   queryAssets,
   queryInspections,
 } from "@/lib/queries";
 import { Badge, Card, CardHeader, EmptyState, StatCard } from "@/components/ui";
-import { CONDITION_META, fmtDateTime } from "@/lib/format";
+import { CONDITION_META, describeError, fmtDateTime } from "@/lib/format";
 import { AssetMap } from "@/components/map/asset-map";
 import { AssetsByTypeChart } from "@/components/charts/assets-by-type";
 import { ConditionChart } from "@/components/charts/condition-chart";
@@ -32,17 +33,18 @@ export default async function DashboardOverviewPage() {
   let assets: Awaited<ReturnType<typeof queryAssets>> = [];
   let inspections: Awaited<ReturnType<typeof queryInspections>> = [];
   let inspectorCount = 0;
+  let inspectorNames = new Map<string, string | null>();
   let dbError: string | null = null;
 
   try {
-    [assets, inspections, inspectorCount] = await Promise.all([
+    [assets, inspections, inspectorCount, inspectorNames] = await Promise.all([
       queryAssets(),
       queryInspections(8),
       countInspectors(),
+      fetchInspectorNames(),
     ]);
   } catch (err) {
-    dbError =
-      err instanceof Error ? err.message : "Could not load dashboard data.";
+    dbError = describeError(err);
   }
 
   const typeNames = new Map<string, string>();
@@ -109,9 +111,7 @@ export default async function DashboardOverviewPage() {
 
       {dbError && (
         <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
-          <strong>Supabase error:</strong> {dbError} — did you run{" "}
-          <code className="rounded bg-red-100 px-1">supabase/schema.sql</code>{" "}
-          yet?
+          <strong>Supabase error:</strong> {dbError}
         </div>
       )}
 
@@ -206,7 +206,8 @@ export default async function DashboardOverviewPage() {
                       {i.assets?.asset_types?.name ? ` · ${i.assets.asset_types.name}` : ""}
                     </p>
                     <p className="truncate text-xs text-zinc-500">
-                      {i.assets?.location ?? "No location"} · {i.profiles?.full_name ?? "—"}
+                      {i.assets?.location ?? "No location"} ·{" "}
+                      {inspectorNames.get(i.inspector_id) ?? "—"}
                     </p>
                   </div>
                   <Badge className={CONDITION_META[i.condition].badge}>

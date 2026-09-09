@@ -61,6 +61,5 @@ export interface InspectionRow {
     lng: number | null;
     asset_types?: Pick<AssetType, "id" | "code" | "name" | "icon"> | null;
   } | null;
-  profiles?: { id: string; full_name: string | null } | null;
   inspection_photos?: InspectionPhoto[];
 }

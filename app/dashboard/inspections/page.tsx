@@ -2,8 +2,8 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { ClipboardList } from "lucide-react";
 import { requireViewer } from "@/lib/auth";
-import { queryInspections } from "@/lib/queries";
-import { CONDITION_META, fmtDateTime } from "@/lib/format";
+import { queryInspections, fetchInspectorNames } from "@/lib/queries";
+import { CONDITION_META, describeError, fmtDateTime } from "@/lib/format";
 import type { InspectionRow } from "@/lib/types";
 import { Badge, EmptyState } from "@/components/ui";
 
@@ -27,11 +27,15 @@ export default async function InspectionsPage({
       : null;
 
   let inspections: InspectionRow[] = [];
+  let inspectorNames = new Map<string, string | null>();
   let dbError: string | null = null;
   try {
-    inspections = await queryInspections(500);
+    [inspections, inspectorNames] = await Promise.all([
+      queryInspections(500),
+      fetchInspectorNames(),
+    ]);
   } catch (err) {
-    dbError = err instanceof Error ? err.message : "Could not load inspections.";
+    dbError = describeError(err);
   }
 
   let rows = inspections;
@@ -168,7 +172,7 @@ export default async function InspectionsPage({
                     )}
                   </td>
                   <td className="px-5 py-3 text-zinc-600">
-                    {i.profiles?.full_name ?? "Unknown"}
+                    {inspectorNames.get(i.inspector_id) ?? "Unknown"}
                   </td>
                   <td className="px-5 py-3 text-zinc-500">{fmtDateTime(i.inspected_at)}</td>
                   <td className="px-5 py-3 text-zinc-500">

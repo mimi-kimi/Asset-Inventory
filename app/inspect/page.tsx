@@ -3,7 +3,7 @@ import Link from "next/link";
 import { ArrowRight, Camera, ClipboardList, Plus } from "lucide-react";
 import { requireViewer } from "@/lib/auth";
 import { queryMyInspections } from "@/lib/queries";
-import { CONDITION_META, fmtDateTime } from "@/lib/format";
+import { CONDITION_META, describeError, fmtDateTime } from "@/lib/format";
 import { Badge, Card, EmptyState } from "@/components/ui";
 
 export const dynamic = "force-dynamic";
@@ -17,7 +17,7 @@ export default async function InspectHomePage() {
   try {
     recent = await queryMyInspections(viewer.user.id, 30);
   } catch (err) {
-    dbError = err instanceof Error ? err.message : "Could not load inspections.";
+    dbError = describeError(err);
   }
 
   return (

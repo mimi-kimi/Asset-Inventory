@@ -3,6 +3,7 @@ import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
 import { requireAdmin } from "@/lib/auth";
 import { queryAssetTypes } from "@/lib/queries";
+import { describeError } from "@/lib/format";
 import { AssetForm } from "@/components/dashboard/asset-form";
 
 export const dynamic = "force-dynamic";
@@ -15,7 +16,7 @@ export default async function NewAssetPage() {
   try {
     types = await queryAssetTypes();
   } catch (err) {
-    dbError = err instanceof Error ? err.message : "Could not load asset types.";
+    dbError = describeError(err);
   }
 
   return (

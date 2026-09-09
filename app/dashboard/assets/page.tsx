@@ -3,7 +3,7 @@ import Link from "next/link";
 import { Cone, MapPin, Pencil, Plus, Search, X } from "lucide-react";
 import { requireViewer } from "@/lib/auth";
 import { queryAssetTypes, queryAssets } from "@/lib/queries";
-import { fmtCoords, fmtDate } from "@/lib/format";
+import { describeError, fmtCoords, fmtDate } from "@/lib/format";
 import type { AssetRow, AssetStatus } from "@/lib/types";
 import { Badge, EmptyState } from "@/components/ui";
 import { ExportAssetsCsv } from "@/components/dashboard/export-assets-csv";
@@ -38,7 +38,7 @@ export default async function AssetsPage({
   try {
     [assets, types] = await Promise.all([queryAssets(), queryAssetTypes()]);
   } catch (err) {
-    dbError = err instanceof Error ? err.message : "Could not load assets.";
+    dbError = describeError(err);
   }
 
   let rows = assets;

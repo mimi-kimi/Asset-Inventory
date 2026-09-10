@@ -1,8 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
-import { ChevronDown, ChevronUp, Layers, X } from "lucide-react";
+import { ChevronDown, ChevronUp, Layers, Maximize2, X } from "lucide-react";
 import { cn, fmtCoords, fmtDateTime } from "@/lib/format";
 import { markerState, MARKER_META } from "@/lib/marker";
 import type { AssetRow, TaskRow } from "@/lib/types";
@@ -36,10 +36,51 @@ export function DashboardWorkspace({
   const [selected, setSelected] = useState<AssetRow | null>(null);
   const [loadingDetail, setLoadingDetail] = useState(false);
   const [fitSignal, setFitSignal] = useState(0);
+  const [photoOpen, setPhotoOpen] = useState(false);
+  const photoDialogRef = useRef<HTMLDialogElement | null>(null);
+  const drawerRef = useRef<HTMLDivElement | null>(null);
+
+  /**
+   * Opens the photo in a native modal <dialog>. showModal() puts the element in
+   * the browser's top layer, so nothing on the page can clip, overlap or cover
+   * it, and Escape-to-close is handled by the browser itself.
+   */
+  function openPhoto() {
+    setPhotoOpen(true);
+    const dialog = photoDialogRef.current;
+    if (dialog && !dialog.open) dialog.showModal();
+  }
+
+  function closePhoto() {
+    setPhotoOpen(false);
+    const dialog = photoDialogRef.current;
+    if (dialog?.open) dialog.close();
+  }
+
+  /** Freeze the page behind the modal while it is open. */
+  useEffect(() => {
+    if (!photoOpen) return;
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = previousOverflow;
+    };
+  }, [photoOpen]);
+
+  /**
+   * Below xl the details panel stacks underneath the map, which can sit below
+   * the fold — bring it into view when a marker is pressed.
+   */
+  useEffect(() => {
+    if (!selected) return;
+    if (window.matchMedia("(min-width: 1280px)").matches) return;
+    drawerRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+  }, [selected]);
 
   /** fetch full marker detail (incl. latest inspection photo) on click */
   async function selectMarker(id: string) {
     const local = visibleAssets.find((a) => a.id === id) ?? null;
+    closePhoto();
     setSelected(local);
     setLoadingDetail(true);
     try {
@@ -278,14 +319,20 @@ export function DashboardWorkspace({
         </div>
       </div>
 
-      {/* Selected marker details drawer (desktop) */}
+      {/* Selected marker details — side panel on xl, stacked below the map on smaller screens */}
       {selected && (
-        <div className="hidden flex-col border-l border-zinc-200 bg-white xl:flex xl:w-[320px] xl:shrink-0 xl:overflow-y-auto">
+        <div
+          ref={drawerRef}
+          className="rounded-xl border border-zinc-200 bg-white shadow-sm xl:flex xl:w-[320px] xl:shrink-0 xl:flex-col xl:overflow-y-auto xl:rounded-none xl:border-0 xl:border-l xl:border-zinc-200 xl:shadow-none"
+        >
           <div className="flex items-center justify-between border-b border-zinc-200 px-4 py-3">
             <h3 className="text-sm font-bold text-zinc-900">Marker details</h3>
             <button
               type="button"
-              onClick={() => setSelected(null)}
+              onClick={() => {
+                closePhoto();
+                setSelected(null);
+              }}
               className="rounded-lg p-1.5 text-zinc-400 hover:bg-zinc-100"
               aria-label="Close details"
             >
@@ -293,21 +340,47 @@ export function DashboardWorkspace({
             </button>
           </div>
 
-          <div className="h-48 w-full shrink-0 border-b border-zinc-200 bg-zinc-900">
+          <div className="relative h-56 w-full shrink-0 overflow-hidden border-b border-zinc-200 bg-zinc-900 xl:h-48">
             {photoSrc ? (
-              /* eslint-disable-next-line @next/next/no-img-element */
-              <img
-                src={photoSrc}
-                alt="Marker"
-                className="h-full w-full object-cover"
-              />
+              <button
+                type="button"
+                onClick={openPhoto}
+                className="group relative h-full w-full cursor-zoom-in"
+                aria-label="Open photo full size"
+                title="Click to enlarge"
+              >
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={photoSrc}
+                  alt="Marker"
+                  className="h-full w-full object-cover transition-transform duration-200 group-hover:scale-[1.03]"
+                />
+                <span className="pointer-events-none absolute bottom-2 right-2 inline-flex items-center gap-1 rounded-full bg-zinc-950/75 px-2.5 py-1 text-[10px] font-semibold text-white ring-1 ring-white/25">
+                  <Maximize2 className="h-3 w-3" />
+                  View full size
+                </span>
+              </button>
             ) : (
-              <div className="flex h-full w-full flex-col items-center justify-center gap-1 text-zinc-400">
+              <div className="flex h-full w-full flex-col items-center justify-center gap-1 px-4 text-center text-zinc-400">
                 <span className="text-3xl">📷</span>
-                <span className="text-xs">No photo yet</span>
+                <span className="text-xs font-semibold">No photo yet</span>
+                <span className="text-[11px] text-zinc-500">
+                  Capture one from the mobile app
+                </span>
               </div>
             )}
           </div>
+
+          {photoSrc && (
+            <button
+              type="button"
+              onClick={openPhoto}
+              className="flex w-full items-center justify-center gap-1.5 border-b border-zinc-200 bg-white px-4 py-2 text-xs font-semibold text-amber-700 transition-colors hover:bg-amber-50"
+            >
+              <Maximize2 className="h-3.5 w-3.5" />
+              Open photo full size
+            </button>
+          )}
 
           <div className="space-y-4 px-5 py-4">
             <div>
@@ -429,6 +502,42 @@ export function DashboardWorkspace({
           </div>
         </div>
       </div>
+
+      {/*
+        Native modal photo viewer. It is only "shown" by openPhoto() via
+        showModal(), which renders it in the browser top layer — above every
+        other element, unclipped by any ancestor, closable with Escape for free.
+        Clicking anywhere (the photo included) closes it.
+      */}
+      {photoSrc && (
+        <dialog
+          ref={photoDialogRef}
+          onClose={() => setPhotoOpen(false)}
+          onClick={closePhoto}
+          aria-label="Marker photo"
+          className="m-0 h-full w-full max-h-none max-w-none cursor-zoom-out overflow-hidden border-0 bg-transparent p-0 backdrop:bg-zinc-950/90 backdrop:backdrop-blur-sm"
+        >
+          <div className="relative flex h-full w-full items-center justify-center p-4 sm:p-8">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={photoSrc}
+              alt="Marker photo, full size"
+              className="max-h-full max-w-full rounded-lg object-contain shadow-2xl"
+            />
+            <p className="pointer-events-none absolute bottom-6 px-4 text-center text-xs font-semibold text-white/70">
+              Click anywhere to close
+            </p>
+            <button
+              type="button"
+              onClick={closePhoto}
+              className="absolute right-4 top-4 rounded-full bg-white/10 p-2 text-white transition-colors hover:bg-white/20"
+              aria-label="Close photo"
+            >
+              <X className="h-5 w-5" />
+            </button>
+          </div>
+        </dialog>
+      )}
 
       </div>
     </div>

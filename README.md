@@ -22,7 +22,8 @@ lights, stop lights, road lamps and more.
 - **Task import** (CSV/Excel): `No, ID-Inventory, Position_X(lng), Position_Y(lat), Price, Type, Remarks`
 - **Map dashboard** (desktop): map always visible under the header — colored markers (🔵 not inspected · 🟢 working · 🔴 not working), task selector, total price + asset distribution panel, status panel
 - **Mobile app** with 4 tabs — Map · Task · Record · Profile — and a **QR-scanner/manual** inspection flow (plate ID → asset type → working? → remarks)
-- **Desktop ↔ Mobile switch buttons** in both directions (header "Mobile" button ↔ mobile app "Desktop view")
+- **Desktop header “Mobile” button** opens the inspector app; mobile users get
+  back to the dashboard from *Profile → Open desktop dashboard*
 - Asset catalog with types (signboards, signals, lamps, guardrails, …)
 - Row Level Security on every table; photos in a public Supabase bucket
 

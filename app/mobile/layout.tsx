@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 import Link from "next/link";
+import { MonitorSmartphone } from "lucide-react";
 import { requireViewer } from "@/lib/auth";
 import { MobileNav } from "@/components/mobile/mobile-nav";
 
@@ -23,6 +24,13 @@ export default async function MobileLayout({
             <span className="truncate text-sm font-bold text-zinc-900">
               Road Asset Tracker
             </span>
+          </Link>
+          <Link
+            href="/dashboard"
+            className="hidden shrink-0 items-center gap-1.5 rounded-lg border border-zinc-300 bg-white px-2.5 py-1.5 text-xs font-semibold text-zinc-700 hover:bg-zinc-50 lg:inline-flex"
+          >
+            <MonitorSmartphone className="h-3.5 w-3.5" />
+            Desktop view
           </Link>
         </div>
         <div className="pb-24">{children}</div>

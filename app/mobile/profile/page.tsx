@@ -38,7 +38,7 @@ export default async function MobileProfilePage() {
       <Card className="divide-y divide-zinc-100">
         <Link
           href="/dashboard"
-          className="flex items-center gap-3 px-5 py-4 text-sm font-semibold text-zinc-700 hover:bg-zinc-50"
+          className="hidden items-center gap-3 px-5 py-4 text-sm font-semibold text-zinc-700 hover:bg-zinc-50 lg:flex"
         >
           <MonitorSmartphone className="h-5 w-5 text-zinc-400" />
           Open desktop dashboard

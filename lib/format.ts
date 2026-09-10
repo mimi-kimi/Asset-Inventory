@@ -126,3 +126,21 @@ export function downloadFile(filename: string, content: string): void {
   a.remove();
   URL.revokeObjectURL(url);
 }
+
+/** Escapes a single CSV cell, quoting it only when it needs it. */
+export function csvCell(value: string | number | null | undefined): string {
+  if (value === null || value === undefined) return "";
+  const text = String(value);
+  return /[",\n]/.test(text) ? `"${text.replace(/"/g, '""')}"` : text;
+}
+
+/** Builds a CSV document from a header row plus data rows. */
+export function buildCsv(
+  header: string[],
+  rows: Array<Array<string | number | null | undefined>>,
+): string {
+  return [
+    header.map(csvCell).join(","),
+    ...rows.map((row) => row.map(csvCell).join(",")),
+  ].join("\n");
+}

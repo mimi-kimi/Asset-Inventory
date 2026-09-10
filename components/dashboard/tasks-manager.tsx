@@ -2,8 +2,8 @@
 
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { CalendarDays, ListChecks, Plus, Trash2 } from "lucide-react";
-import { describeError, fmtDate } from "@/lib/format";
+import { CalendarDays, Download, ListChecks, Plus, Trash2 } from "lucide-react";
+import { buildCsv, describeError, downloadFile, fmtDate } from "@/lib/format";
 import type { AssetRow, TaskRow } from "@/lib/types";
 import { createClient } from "@/lib/supabase/client";
 import { Card, EmptyState } from "@/components/ui";
@@ -34,6 +34,57 @@ export function TasksManager({
       }),
     [tasks, assets],
   );
+
+  /**
+   * Downloads every marker of a task with its latest inspection result.
+   * "Working" is blank for markers that have not been inspected yet.
+   */
+  function exportTask(task: TaskRow) {
+    const taskAssets = assets
+      .filter((a) => a.task_id === task.id)
+      .sort((a, b) =>
+        (a.seq_no ?? "").localeCompare(b.seq_no ?? "", undefined, {
+          numeric: true,
+        }),
+      );
+
+    const body = taskAssets.map((a) => {
+      const latest = a.inspections?.length
+        ? [...a.inspections].sort((x, y) =>
+            y.inspected_at.localeCompare(x.inspected_at),
+          )[0]
+        : null;
+      return [
+        a.seq_no ?? "",
+        a.inventory_id ?? "",
+        a.type_text || a.asset_types?.name || "",
+        a.price ?? "",
+        latest ? (latest.functional ? "YES" : "NO") : "",
+        latest ? new Date(latest.inspected_at).toLocaleString() : "",
+        a.notes ?? "",
+        a.lat ?? "",
+        a.lng ?? "",
+      ];
+    });
+
+    downloadFile(
+      `${task.name.replace(/[^\w-]+/g, "_")}-inspections.csv`,
+      buildCsv(
+        [
+          "No",
+          "ID-Inventory",
+          "Type",
+          "Price",
+          "Working",
+          "Inspected At",
+          "Remarks",
+          "Latitude",
+          "Longitude",
+        ],
+        body,
+      ),
+    );
+  }
 
   async function deleteTask(id: string, name: string) {
     const found = rows.find((r) => r.id === id);
@@ -138,17 +189,33 @@ export function TasksManager({
                     {t.inspected}/{t.markers}
                   </td>
                   <td className="px-5 py-3 text-right">
-                    {isAdmin && (
+                    <div className="flex items-center justify-end gap-1">
                       <button
                         type="button"
-                        disabled={busyDelete === t.id}
-                        onClick={() => deleteTask(t.id, t.name)}
-                        className="inline-flex items-center gap-1 rounded-lg px-2.5 py-1.5 text-sm font-semibold text-red-600 hover:bg-red-50 disabled:opacity-50"
+                        disabled={t.markers === 0}
+                        onClick={() => exportTask(t)}
+                        title={
+                          t.markers === 0
+                            ? "This task has no markers"
+                            : "Download this task's inspections as CSV"
+                        }
+                        className="inline-flex items-center gap-1 rounded-lg px-2.5 py-1.5 text-sm font-semibold text-amber-700 hover:bg-amber-50 disabled:opacity-40"
                       >
-                        <Trash2 className="h-4 w-4" />
-                        {busyDelete === t.id ? "…" : "Delete"}
+                        <Download className="h-4 w-4" />
+                        Export
                       </button>
-                    )}
+                      {isAdmin && (
+                        <button
+                          type="button"
+                          disabled={busyDelete === t.id}
+                          onClick={() => deleteTask(t.id, t.name)}
+                          className="inline-flex items-center gap-1 rounded-lg px-2.5 py-1.5 text-sm font-semibold text-red-600 hover:bg-red-50 disabled:opacity-50"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                          {busyDelete === t.id ? "…" : "Delete"}
+                        </button>
+                      )}
+                    </div>
                   </td>
                 </tr>
               ))}

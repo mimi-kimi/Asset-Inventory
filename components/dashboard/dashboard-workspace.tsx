@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
-import { ChevronDown, ChevronUp, Layers, Maximize2, X } from "lucide-react";
+import { ChevronDown, ChevronUp, Layers, X } from "lucide-react";
 import { cn, fmtCoords, fmtDateTime } from "@/lib/format";
 import { markerState, MARKER_META } from "@/lib/marker";
 import type { AssetRow, TaskRow } from "@/lib/types";
@@ -340,48 +340,6 @@ export function DashboardWorkspace({
             </button>
           </div>
 
-          <div className="relative h-56 w-full shrink-0 overflow-hidden border-b border-zinc-200 bg-zinc-900 xl:h-48">
-            {photoSrc ? (
-              <button
-                type="button"
-                onClick={openPhoto}
-                className="group relative h-full w-full cursor-zoom-in"
-                aria-label="Open photo full size"
-                title="Click to enlarge"
-              >
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img
-                  src={photoSrc}
-                  alt="Marker"
-                  className="h-full w-full object-cover transition-transform duration-200 group-hover:scale-[1.03]"
-                />
-                <span className="pointer-events-none absolute bottom-2 right-2 inline-flex items-center gap-1 rounded-full bg-zinc-950/75 px-2.5 py-1 text-[10px] font-semibold text-white ring-1 ring-white/25">
-                  <Maximize2 className="h-3 w-3" />
-                  View full size
-                </span>
-              </button>
-            ) : (
-              <div className="flex h-full w-full flex-col items-center justify-center gap-1 px-4 text-center text-zinc-400">
-                <span className="text-3xl">📷</span>
-                <span className="text-xs font-semibold">No photo yet</span>
-                <span className="text-[11px] text-zinc-500">
-                  Capture one from the mobile app
-                </span>
-              </div>
-            )}
-          </div>
-
-          {photoSrc && (
-            <button
-              type="button"
-              onClick={openPhoto}
-              className="flex w-full items-center justify-center gap-1.5 border-b border-zinc-200 bg-white px-4 py-2 text-xs font-semibold text-amber-700 transition-colors hover:bg-amber-50"
-            >
-              <Maximize2 className="h-3.5 w-3.5" />
-              Open photo full size
-            </button>
-          )}
-
           <div className="space-y-4 px-5 py-4">
             <div>
               <p className="text-[11px] font-semibold uppercase tracking-wide text-zinc-400">
@@ -393,6 +351,28 @@ export function DashboardWorkspace({
                   : selected.code || "No ID-Inventory yet"}
               </p>
             </div>
+
+            {photoSrc ? (
+              <button
+                type="button"
+                onClick={openPhoto}
+                className="group block w-full cursor-zoom-in overflow-hidden rounded-lg border border-zinc-200 bg-zinc-900"
+                aria-label="Open photo"
+                title="Open photo"
+              >
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={photoSrc}
+                  alt="Marker"
+                  className="h-40 w-full object-cover transition-transform duration-200 group-hover:scale-[1.03] sm:h-48"
+                />
+              </button>
+            ) : (
+              <div className="flex h-24 w-full flex-col items-center justify-center gap-1 rounded-lg border border-dashed border-zinc-300 bg-zinc-50 text-zinc-400">
+                <span className="text-2xl">📷</span>
+                <span className="text-xs">No photo yet</span>
+              </div>
+            )}
 
             <dl className="space-y-2.5 border-t border-zinc-100 pt-4 text-sm">
               <div className="flex justify-between gap-3">

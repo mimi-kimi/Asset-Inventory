@@ -16,7 +16,6 @@ export default async function DashboardLayout({
     <div className="min-h-dvh bg-zinc-100">
       <DashboardHeader
         fullName={viewer.profile.full_name}
-        email={viewer.user.email}
         role={viewer.profile.role}
         isAdmin={isAdmin}
       />

@@ -1,10 +1,8 @@
 "use client";
 
-import { useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import {
-  ChevronDown,
   ClipboardList,
   Cone,
   LayoutDashboard,
@@ -17,7 +15,7 @@ import {
 import type { LucideIcon } from "lucide-react";
 import { cn } from "@/lib/format";
 import { createClient } from "@/lib/supabase/client";
-import { Avatar, Badge } from "@/components/ui";
+import { Avatar } from "@/components/ui";
 import type { Role } from "@/lib/types";
 
 const MANAGE_LINKS: Array<{
@@ -35,18 +33,15 @@ const MANAGE_LINKS: Array<{
 
 export function DashboardHeader({
   fullName,
-  email,
   role,
   isAdmin,
 }: {
   fullName: string | null;
-  email?: string;
   role: Role;
   isAdmin: boolean;
 }) {
   const router = useRouter();
   const pathname = usePathname();
-  const [menuOpen, setMenuOpen] = useState(false);
 
   const links = MANAGE_LINKS.filter((l) => !l.adminOnly || isAdmin);
 
@@ -54,7 +49,6 @@ export function DashboardHeader({
     try {
       await createClient().auth.signOut();
     } finally {
-      setMenuOpen(false);
       router.push("/login");
       router.refresh();
     }
@@ -68,9 +62,31 @@ export function DashboardHeader({
           <span className="hidden font-bold text-zinc-900 sm:inline">Road Asset Tracker</span>
         </Link>
 
-        <h1 className="pointer-events-none hidden flex-1 truncate text-center text-base font-bold text-zinc-700 lg:block">
-          Asset Inventory · Inspection Dashboard
-        </h1>
+        {/* Desktop nav — these pages used to live in the profile dropdown */}
+        <nav className="hidden min-w-0 flex-1 items-center gap-1 lg:flex">
+          {links.map((item) => {
+            const Icon = item.icon;
+            const active =
+              item.href === "/dashboard"
+                ? pathname === "/dashboard"
+                : pathname.startsWith(item.href);
+            return (
+              <Link
+                key={item.href}
+                href={item.href}
+                className={cn(
+                  "inline-flex shrink-0 items-center gap-1.5 rounded-lg px-2.5 py-2 text-sm font-semibold transition-colors",
+                  active
+                    ? "bg-amber-50 text-amber-800"
+                    : "text-zinc-600 hover:bg-zinc-100",
+                )}
+              >
+                <Icon className="h-4 w-4" />
+                {item.label}
+              </Link>
+            );
+          })}
+        </nav>
 
         <div className="flex shrink-0 items-center gap-2">
           <Link
@@ -95,67 +111,24 @@ export function DashboardHeader({
             <span className="hidden sm:inline">Mobile</span>
           </Link>
 
-          <div className="relative">
-            <button
-              type="button"
-              onClick={() => setMenuOpen((o) => !o)}
-              className="flex items-center gap-2 rounded-lg border border-zinc-200 px-1.5 py-1.5 hover:bg-zinc-50"
-            >
-              <Avatar name={fullName} />
-              <span className="hidden text-sm font-semibold text-zinc-700 md:inline">{fullName ?? "User"}</span>
-              <ChevronDown className="hidden h-4 w-4 text-zinc-400 md:block" />
-            </button>
-
-            {menuOpen && (
-              <>
-                <div className="fixed inset-0 z-40" onClick={() => setMenuOpen(false)} />
-                <div className="absolute right-0 z-50 mt-2 w-64 overflow-hidden rounded-xl border border-zinc-200 bg-white shadow-xl">
-                  <div className="border-b border-zinc-100 px-4 py-3">
-                    <p className="truncate text-sm font-semibold text-zinc-900">{fullName ?? "User"}</p>
-                    <p className="truncate text-xs text-zinc-500">{email}</p>
-                    <div className="mt-1.5">
-                      {role === "ADMIN" ? (
-                        <Badge className="bg-amber-100 text-amber-800">Admin</Badge>
-                      ) : (
-                        <Badge className="bg-sky-100 text-sky-800">Inspector</Badge>
-                      )}
-                    </div>
-                  </div>
-                  <nav className="p-1.5">
-                    {links.map((item) => {
-                      const Icon = item.icon;
-                      const active = item.href === "/dashboard"
-                        ? pathname === "/dashboard"
-                        : pathname.startsWith(item.href);
-                      return (
-                        <Link
-                          key={item.href}
-                          href={item.href}
-                          onClick={() => setMenuOpen(false)}
-                          className={cn(
-                            "flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm font-medium",
-                            active ? "bg-amber-50 text-amber-800" : "text-zinc-700 hover:bg-zinc-100",
-                          )}
-                        >
-                          <Icon className="h-4 w-4" />
-                          {item.label}
-                        </Link>
-                      );
-                    })}
-                  </nav>
-                  <div className="border-t border-zinc-100 p-1.5">
-                    <button
-                      type="button"
-                      onClick={signOut}
-                      className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-sm font-semibold text-red-600 hover:bg-red-50"
-                    >
-                      <LogOut className="h-4 w-4" /> Sign out
-                    </button>
-                  </div>
-                </div>
-              </>
-            )}
-          </div>
+          <button
+            type="button"
+            onClick={signOut}
+            title="Sign out"
+            aria-label="Sign out"
+            className="flex items-center gap-2 rounded-lg border border-zinc-200 px-1.5 py-1.5 transition-colors hover:bg-zinc-50"
+          >
+            <Avatar name={fullName} />
+            <span className="hidden text-left xl:block">
+              <span className="block text-xs font-semibold leading-tight text-zinc-800">
+                {fullName ?? "User"}
+              </span>
+              <span className="block text-[10px] leading-tight text-zinc-500">
+                {role === "ADMIN" ? "Admin" : "Inspector"}
+              </span>
+            </span>
+            <LogOut className="h-4 w-4 shrink-0 text-zinc-400" />
+          </button>
         </div>
       </div>
             <div className="flex gap-1 overflow-x-auto border-t border-zinc-100 px-3 pb-2 pt-1.5 lg:hidden">

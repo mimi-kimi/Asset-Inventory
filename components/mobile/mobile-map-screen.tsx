@@ -122,8 +122,8 @@ export function MobileMapScreen({
           className="h-full w-full"
         />
 
-        <div className="absolute left-3 top-3 z-[1000] rounded-full border border-zinc-200 bg-white/95 px-3 py-1.5 shadow-sm">
-          <MarkerLegend />
+        <div className="absolute bottom-3 left-3 z-[1000] rounded-lg border border-zinc-200 bg-white/95 px-3 py-2 shadow-sm">
+          <MarkerLegend vertical />
         </div>
 
         {selected && (

@@ -120,9 +120,9 @@ export function MarkersMap({
 /** Small legend used above/below maps. `vertical` stacks the entries. */
 export function MarkerLegend({ vertical = false }: { vertical?: boolean }) {
   const items = [
-    { color: "#3b82f6", label: "Not inspected" },
     { color: "#22c55e", label: "Working" },
     { color: "#ef4444", label: "Not working" },
+    { color: "#3b82f6", label: "Not inspected" },
   ];
   const Item = ({ color, label }: { color: string; label: string }) => (
     <span className="inline-flex items-center gap-1.5">

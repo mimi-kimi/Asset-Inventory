@@ -9,6 +9,9 @@ export default async function Home() {
   const viewer = await getViewer();
   if (!viewer) redirect("/login");
 
+  // Users created with a temporary password must set their own first.
+  if (viewer.profile.must_change_password) redirect("/account");
+
   // Desktop lands on the dashboard; phones land on the mobile inspector app.
   const h = await headers();
   const ua = h.get("user-agent");

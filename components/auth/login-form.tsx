@@ -5,9 +5,8 @@ import { useRouter } from "next/navigation";
 import { AlertCircle, Loader2 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { isSupabaseConfigured } from "@/lib/env";
+import { resolveLoginEmail } from "@/lib/auth-username";
 import { btnPrimary, inputCls, labelCls } from "@/components/ui";
-
-type Mode = "signin" | "signup";
 
 export function LoginForm() {
   const configured = isSupabaseConfigured();
@@ -23,13 +22,12 @@ function SetupNotice() {
       <ol className="mt-3 list-decimal space-y-1 pl-5">
         <li>Create a free project at supabase.com</li>
         <li>
-          Open the SQL editor and run the script in{" "}
-          <code className="rounded bg-amber-100 px-1">supabase/schema.sql</code>
+          Run <code className="rounded bg-amber-100 px-1">supabase/schema.sql</code>{" "}
+          and the migrations in the SQL editor
         </li>
         <li>
           Copy your Project URL &amp; anon key into{" "}
-          <code className="rounded bg-amber-100 px-1">.env.local</code> (see{" "}
-          <code className="rounded bg-amber-100 px-1">.env.example</code>)
+          <code className="rounded bg-amber-100 px-1">.env.local</code>
         </li>
         <li>Restart the dev server and reload this page</li>
       </ol>
@@ -40,57 +38,29 @@ function SetupNotice() {
 function AuthCard() {
   const router = useRouter();
   const supabase = createClient();
-  const [mode, setMode] = useState<Mode>("signin");
-  const [email, setEmail] = useState("");
+  const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
-  const [fullName, setFullName] = useState("");
   const [error, setError] = useState("");
-  const [notice, setNotice] = useState("");
   const [busy, setBusy] = useState(false);
-
-  function switchMode(next: Mode) {
-    setMode(next);
-    setError("");
-    setNotice("");
-  }
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     setError("");
-    setNotice("");
     setBusy(true);
     try {
-      if (mode === "signup") {
-        const { data, error } = await supabase.auth.signUp({
-          email,
-          password,
-          options: {
-            data: { full_name: fullName.trim() || null },
-            emailRedirectTo: `${window.location.origin}/login`,
-          },
-        });
-        if (error) throw error;
-        if (data.session) {
-          router.refresh();
-          router.push("/");
-        } else if (data.user) {
-          setNotice(
-            "Account created! Check your inbox and confirm your email, then sign in.",
-          );
-          setMode("signin");
-        }
-      } else {
-        const { error } = await supabase.auth.signInWithPassword({
-          email,
-          password,
-        });
-        if (error) throw error;
-        router.refresh();
-        router.push("/");
-      }
+      const { error: signInError } = await supabase.auth.signInWithPassword({
+        email: resolveLoginEmail(username),
+        password,
+      });
+      if (signInError) throw signInError;
+      router.refresh();
+      router.push("/");
     } catch (err) {
+      const raw = err instanceof Error ? err.message : "";
       setError(
-        err instanceof Error ? err.message : "Something went wrong. Try again.",
+        /invalid login credentials/i.test(raw)
+          ? "Wrong username or password."
+          : raw || "Could not sign in. Try again.",
       );
     } finally {
       setBusy(false);
@@ -99,44 +69,25 @@ function AuthCard() {
 
   return (
     <div>
-      <h1 className="text-2xl font-bold text-zinc-900">
-        {mode === "signin" ? "Welcome back" : "Create an account"}
-      </h1>
+      <h1 className="text-2xl font-bold text-zinc-900">Sign in</h1>
       <p className="mt-1 text-sm text-zinc-500">
-        {mode === "signin"
-          ? "Sign in to your dashboard or inspector app."
-          : "New inspectors are created with the INSPECTOR role."}
+        Use the username and password given to you by your administrator.
       </p>
 
       <form onSubmit={handleSubmit} className="mt-6 space-y-4">
-        {mode === "signup" && (
-          <div>
-            <label className={labelCls} htmlFor="full-name">
-              Full name
-            </label>
-            <input
-              id="full-name"
-              className={inputCls}
-              value={fullName}
-              onChange={(e) => setFullName(e.target.value)}
-              placeholder="Juan Dela Cruz"
-              autoComplete="name"
-              required
-            />
-          </div>
-        )}
         <div>
-          <label className={labelCls} htmlFor="email">
-            Email
+          <label className={labelCls} htmlFor="username">
+            Username
           </label>
           <input
-            id="email"
-            type="email"
+            id="username"
             className={inputCls}
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            placeholder="you@example.com"
-            autoComplete="email"
+            value={username}
+            onChange={(e) => setUsername(e.target.value)}
+            placeholder="e.g. jdelacruz"
+            autoComplete="username"
+            autoCapitalize="none"
+            autoCorrect="off"
             required
           />
         </div>
@@ -151,8 +102,7 @@ function AuthCard() {
             value={password}
             onChange={(e) => setPassword(e.target.value)}
             placeholder="••••••••"
-            autoComplete={mode === "signup" ? "new-password" : "current-password"}
-            minLength={6}
+            autoComplete="current-password"
             required
           />
         </div>
@@ -163,11 +113,6 @@ function AuthCard() {
             {error}
           </p>
         )}
-        {notice && (
-          <p className="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-800">
-            {notice}
-          </p>
-        )}
 
         <button
           type="submit"
@@ -175,19 +120,13 @@ function AuthCard() {
           className={`${btnPrimary} w-full py-2.5`}
         >
           {busy && <Loader2 className="h-4 w-4 animate-spin" />}
-          {mode === "signin" ? "Sign in" : "Create account"}
+          Sign in
         </button>
       </form>
 
-      <p className="mt-6 text-center text-sm text-zinc-500">
-        {mode === "signin" ? "New inspector?" : "Already have an account?"}{" "}
-        <button
-          type="button"
-          onClick={() => switchMode(mode === "signin" ? "signup" : "signin")}
-          className="font-semibold text-amber-700 hover:text-amber-600"
-        >
-          {mode === "signin" ? "Create an account" : "Sign in instead"}
-        </button>
+      <p className="mt-6 text-center text-xs text-zinc-400">
+        Accounts are created by an administrator — ask your admin if you need
+        access.
       </p>
     </div>
   );

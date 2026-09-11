@@ -39,30 +39,38 @@ supabase/schema.sql   one-time database setup
 ## Local setup
 
 1. **Supabase project** — create a free project at supabase.com.
-2. **Run the schema** — open *SQL Editor* and run `supabase/schema.sql`,
-   then `supabase/migration_v2.sql` (adds tasks + import columns) and
-   `supabase/migration_v3.sql` (inspection WebP/base64 photo column).
+2. **Run the schema** — open *SQL Editor* and run, in order:
+   `supabase/schema.sql`, `supabase/migration_v2.sql` (tasks + import columns),
+   `supabase/migration_v3.sql` (inspection photo column) and
+   `supabase/migration_v4.sql` (username login + admin-managed users).
    A sample import file lives at `public/sample-task.csv`.
-3. **Env vars** — copy `.env.example` to `.env.local` and paste your values
+3. **Disable self sign-up** — Supabase → *Authentication → Providers → Email* →
+   turn **off** "Allow new users to sign up". Accounts are created by admins only.
+4. **Env vars** — copy `.env.example` to `.env.local` and paste your values
    from Supabase → *Project Settings → API*:
    ```bash
    NEXT_PUBLIC_SUPABASE_URL=https://xxxx.supabase.co
    NEXT_PUBLIC_SUPABASE_ANON_KEY=your-anon-key
+   SUPABASE_SERVICE_ROLE_KEY=your-service-role-key   # server-only, admin user management
+   NEXT_PUBLIC_AUTH_EMAIL_DOMAIN=assets.local        # optional
    ```
-4. **Install & run**
+5. **Install & run**
    ```bash
    npm install
    npm run dev
    ```
    Open http://localhost:3000.
-5. **First user** — sign up through the app (role = INSPECTOR by default).
-   To become an ADMIN, run in the Supabase SQL editor:
-   ```sql
-   update public.profiles set role = 'ADMIN'
-   where id = (select id from auth.users where email = 'YOUR_EMAIL');
-   ```
-   > Tip: for fast testing, turn **off email confirmation** in Supabase →
-   > Authentication → Providers → Email.
+6. **Create the first admin** (one time):
+   - Supabase → *Authentication → Users → Add user* → enter any email + password,
+     tick "Auto confirm".
+   - Then in the SQL editor, give that account a username and the ADMIN role:
+     ```sql
+     update public.profiles
+     set username = 'admin', role = 'ADMIN'
+     where id = (select id from auth.users where email = 'YOUR_EMAIL');
+     ```
+   - Sign in with username `admin` + that password. From then on, create every
+     other account from **Dashboard → Users**.
 
 ## Roles
 
@@ -70,6 +78,35 @@ supabase/schema.sql   one-time database setup
   all inspections, CSV export.
 - **INSPECTOR** lands on `/inspect` — record inspections from a phone;
   can also open the dashboard read-only.
+
+## User management
+
+Sign-in is **username + password** (no email needed). Behind the scenes the app
+maps `username` → `username@<NEXT_PUBLIC_AUTH_EMAIL_DOMAIN>` for Supabase Auth.
+
+- **Inspectors** — Dashboard → **Users** → *Add inspector* (username, full name,
+  temporary password, optional "must change password"). You can also reset
+  passwords, deactivate/reactivate, edit names and delete accounts there.
+- **Admins** — created/promoted with **SQL only** (deliberately, so admin rights
+  can't be handed out by accident from the UI):
+
+```sql
+-- promote to admin
+update public.profiles set role = 'ADMIN' where username = 'juan';
+
+-- demote back to inspector
+update public.profiles set role = 'INSPECTOR' where username = 'juan';
+
+-- list everyone
+select username, full_name, role, active, email, must_change_password
+from public.profiles order by role desc, username;
+```
+
+- Users sign in and can change their own **name and password** at `/account`
+  (also linked from the mobile Profile tab). If `must_change_password` is set,
+  they are redirected there right after signing in.
+- Deleting a user is blocked when they already have inspection records —
+  **deactivate** them instead (they can no longer sign in).
 
 ## Deploy to Vercel
 

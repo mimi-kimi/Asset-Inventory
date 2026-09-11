@@ -11,6 +11,10 @@ export interface Profile {
   id: string;
   full_name: string | null;
   role: Role;
+  username?: string | null;
+  email?: string | null;
+  active?: boolean;
+  must_change_password?: boolean;
 }
 
 export interface TaskRow {

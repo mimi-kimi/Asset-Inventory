@@ -60,7 +60,7 @@ export function DashboardHeader({
 
   return (
     <header className="sticky top-0 z-[1200] border-b border-zinc-200 bg-white/95 backdrop-blur">
-      <div className="mx-auto flex h-16 w-full max-w-[1700px] items-center justify-between gap-3 px-4">
+      <div className="flex h-16 w-full items-center justify-between gap-3 px-4">
         <Link href="/dashboard" className="flex min-w-0 items-center gap-2">
           <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-amber-500 text-lg text-zinc-950">🚸</span>
           <span className="hidden font-bold text-zinc-900 sm:inline">Road Asset Tracker</span>

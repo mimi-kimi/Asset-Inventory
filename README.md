@@ -108,6 +108,66 @@ from public.profiles order by role desc, username;
 - Deleting a user is blocked when they already have inspection records —
   **deactivate** them instead (they can no longer sign in).
 
+### Create an admin entirely with SQL (optional)
+
+> Supabase's own dashboard (*Authentication → Users → Add user*) is the safest
+> way, but you can do it in SQL too — this is what the Admin API does internally.
+
+```sql
+-- 1) create the auth user with a bcrypt-hashed password
+insert into auth.users (
+  instance_id, id, aud, role, email, encrypted_password,
+  email_confirmed_at, raw_app_meta_data, raw_user_meta_data,
+  created_at, updated_at, confirmation_token, recovery_token,
+  email_change_token_new, email_change
+)
+values (
+  '00000000-0000-0000-0000-000000000000',
+  gen_random_uuid(),
+  'authenticated',
+  'authenticated',
+  'admin@assets.local',
+  extensions.crypt('ChangeMe123', extensions.gen_salt('bf')),
+  now(),
+  '{"provider":"email","providers":["email"]}'::jsonb,
+  '{"full_name":"Administrator","username":"admin"}'::jsonb,
+  now(), now(), '', '', '', ''
+)
+on conflict (email) do nothing;
+
+-- 2) link the email identity (needed for email/password sign-in)
+insert into auth.identities (
+  id, user_id, identity_data, provider, last_sign_in_at, created_at, updated_at, provider_id
+)
+select
+  gen_random_uuid(), u.id,
+  jsonb_build_object('sub', u.id::text, 'email', u.email),
+  'email', now(), now(), now(), u.email
+from auth.users u
+where u.email = 'admin@assets.local'
+on conflict do nothing;
+
+-- 3) make sure the profile is ADMIN with the username you want
+update public.profiles p
+set username = 'admin', role = 'ADMIN'
+from auth.users u
+where u.id = p.id and u.email = 'admin@assets.local';
+```
+
+Sign in with username `admin` + password `ChangeMe123` (then change it in
+`/account`). To reset any password with SQL later:
+
+```sql
+update auth.users
+set encrypted_password = extensions.crypt('NewPassword123', extensions.gen_salt('bf')),
+    updated_at = now()
+where email = 'admin@assets.local';
+```
+
+*Older Supabase projects may not have the `provider_id` column on
+`auth.identities` — if the statement errors about it, delete that column from
+the insert list.*
+
 ## Deploy to Vercel
 
 1. Push this folder to a GitHub repository.

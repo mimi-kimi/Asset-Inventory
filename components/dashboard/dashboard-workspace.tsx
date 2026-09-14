@@ -432,10 +432,6 @@ export function DashboardWorkspace({
                 <p className="mt-1 text-sm text-zinc-600">{selected.notes}</p>
               </div>
             )}
-
-            <p className="border-t border-zinc-100 pt-3 text-xs text-zinc-400">
-              📱 Field inspection is done in the mobile app.
-            </p>
           </div>
         </div>
       )}

@@ -85,7 +85,7 @@ export default async function InspectHomePage() {
                     <span className="text-xl">{meta.emoji}</span>
                     <div className="min-w-0 flex-1">
                       <p className="truncate font-semibold text-zinc-900">
-                        {i.assets?.code ?? "Unknown asset"}
+                        {i.assets?.inventory_id ?? "No ID-Inventory"}
                         {i.assets?.asset_types?.name
                           ? ` · ${i.assets.asset_types.name}`
                           : ""}

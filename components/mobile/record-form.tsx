@@ -154,7 +154,7 @@ export function RecordForm({
         </h2>
         <p className="mt-1 text-sm text-zinc-500">
           {asset.seq_no ? `Marker No. ${asset.seq_no} · ` : ""}
-          {inventoryId || asset.inventory_id || asset.code} —{" "}
+          {inventoryId || asset.inventory_id || "No ID-Inventory"} —{" "}
           {working ? "working" : "not working"}
         </p>
         <div className="mt-6 flex flex-col gap-2">
@@ -197,7 +197,7 @@ export function RecordForm({
           Marker · No. {asset.seq_no ?? asset.code}
         </p>
         <p className="mt-0.5 truncate text-lg font-bold text-zinc-900">
-          {inventoryId || asset.inventory_id || "No ID-Inventory yet"}
+          {inventoryId || asset.inventory_id || "No ID-Inventory"}
         </p>
         <p className="text-xs text-zinc-500">
           {asset.type_text || asset.asset_types?.name || "Type not set"}

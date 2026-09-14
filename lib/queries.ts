@@ -11,7 +11,7 @@ import type { AssetRow, AssetType, InspectionRow, TaskRow } from "@/lib/types";
  * payload huge. Only the single-inspection query loads them.
  */
 const INSPECTION_LIST_COLUMNS =
-  "id, asset_id, inspector_id, inspected_at, condition, functional, remarks, created_at, assets(id, code, location, lat, lng, asset_types(id, code, name, icon)), inspection_photos(id, inspection_id, photo_url)";
+  "id, asset_id, inspector_id, inspected_at, condition, functional, remarks, created_at, assets(id, code, seq_no, inventory_id, location, lat, lng, asset_types(id, code, name, icon)), inspection_photos(id, inspection_id, photo_url)";
 
 export async function queryAssets(): Promise<AssetRow[]> {
   const supabase = await createClient();

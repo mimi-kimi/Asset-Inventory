@@ -51,7 +51,7 @@ export default async function InspectDetailPage({
               Inspection report
             </p>
             <h1 className="mt-0.5 text-xl font-bold text-zinc-900">
-              {inspection.assets?.code ?? "Unknown asset"}
+              {inspection.assets?.inventory_id ?? "No ID-Inventory"}
             </h1>
             <p className="text-sm text-zinc-500">
               {inspection.assets?.asset_types?.name ?? "Road asset"}

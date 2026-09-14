@@ -122,8 +122,8 @@ export function DashboardWorkspace({
       const state = markerState(a);
       return {
         id: a.id,
-        label: a.seq_no || a.inventory_id || a.code,
-        sub: a.inventory_id ? `${a.inventory_id}` : undefined,
+        label: a.seq_no || a.inventory_id || "No ID-Inventory",
+        sub: a.inventory_id ? a.inventory_id : "No ID-Inventory",
         lat: a.lat as number,
         lng: a.lng as number,
         state,
@@ -348,7 +348,7 @@ export function DashboardWorkspace({
               <p className="text-lg font-bold text-zinc-900">
                 {selected.inventory_id
                   ? `ID-Inventory: ${selected.inventory_id}`
-                  : selected.code || "No ID-Inventory yet"}
+                  : "No ID-Inventory"}
               </p>
             </div>
 

@@ -154,8 +154,11 @@ export default async function InspectionsPage({
               {rows.map((i) => (
                 <tr key={i.id} className="transition-colors hover:bg-zinc-50">
                   <td className="px-5 py-3">
-                    <p className="font-semibold text-zinc-900">{i.assets?.code ?? "—"}</p>
+                    <p className="font-semibold text-zinc-900">
+                      {i.assets?.inventory_id ?? "No ID-Inventory"}
+                    </p>
                     <p className="text-xs text-zinc-500">
+                      {i.assets?.seq_no ? `No. ${i.assets.seq_no} · ` : ""}
                       {i.assets?.asset_types?.name ?? ""}
                     </p>
                   </td>

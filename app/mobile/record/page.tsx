@@ -65,11 +65,12 @@ export default async function MobileRecordPage() {
                   <span className="text-xl">{meta.emoji}</span>
                   <div className="min-w-0 flex-1">
                     <p className="truncate font-bold text-zinc-900">
-                      {i.assets?.code ?? "Asset"}
+                      {i.assets?.inventory_id ?? "No ID-Inventory"}
                     </p>
                     <p className="flex items-center gap-1 truncate text-xs text-zinc-500">
                       <MapPin className="h-3 w-3" />
-                      {i.assets?.location ?? i.assets?.code}
+                      {i.assets?.location ??
+                        (i.assets?.seq_no ? `No. ${i.assets.seq_no}` : "No location")}
                     </p>
                     <p className="text-xs text-zinc-400">
                       {fmtDateTime(i.inspected_at)}

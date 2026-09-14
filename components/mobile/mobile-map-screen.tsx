@@ -45,8 +45,8 @@ export function MobileMapScreen({
         .filter((a) => a.lat != null && a.lng != null)
         .map((a) => ({
           id: a.id,
-          label: a.seq_no || a.inventory_id || a.code,
-          sub: a.inventory_id ? `ID ${a.inventory_id}` : "No ID yet",
+          label: a.seq_no || a.inventory_id || "No ID-Inventory",
+          sub: a.inventory_id ? `ID ${a.inventory_id}` : "No ID-Inventory",
           lat: a.lat as number,
           lng: a.lng as number,
           state: markerState(a),
@@ -137,7 +137,7 @@ export function MobileMapScreen({
                   <p className="truncate text-lg font-bold text-zinc-900">
                     {selected.inventory_id
                       ? `ID-Inventory: ${selected.inventory_id}`
-                      : "No ID-Inventory yet"}
+                      : "No ID-Inventory"}
                   </p>
                 </div>
                 <button

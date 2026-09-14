@@ -82,6 +82,8 @@ export interface InspectionRow {
   assets?: {
     id: string;
     code: string;
+    seq_no?: string | null;
+    inventory_id?: string | null;
     location: string | null;
     lat: number | null;
     lng: number | null;

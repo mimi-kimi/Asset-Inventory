@@ -1,8 +1,9 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { Html5Qrcode } from "html5-qrcode";
 import { Loader2, X } from "lucide-react";
+
+type Html5QrcodeInstance = import("html5-qrcode").Html5Qrcode;
 
 export function QrScannerOverlay({
   onDecoded,
@@ -12,13 +13,15 @@ export function QrScannerOverlay({
   onClose: () => void;
 }) {
   const [error, setError] = useState("");
-  const scannerRef = useRef<Html5Qrcode | null>(null);
+  const scannerRef = useRef<Html5QrcodeInstance | null>(null);
 
   useEffect(() => {
     let cancelled = false;
 
     (async () => {
       try {
+        // loaded on demand: the scanner library only downloads when opened
+        const { Html5Qrcode } = await import("html5-qrcode");
         const scanner = new Html5Qrcode("qr-reader", false);
         scannerRef.current = scanner;
         await scanner.start(

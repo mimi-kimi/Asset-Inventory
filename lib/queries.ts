@@ -6,7 +6,12 @@ import type { AssetRow, AssetType, InspectionRow, TaskRow } from "@/lib/types";
 /**
  * Server-side data helpers. These use the signed-in user's session cookie,
  * so Supabase Row Level Security applies exactly like it does on the client.
+ *
+ * Note: list queries never select `photo_webp` — base64 photos would make the
+ * payload huge. Only the single-inspection query loads them.
  */
+const INSPECTION_LIST_COLUMNS =
+  "id, asset_id, inspector_id, inspected_at, condition, functional, remarks, created_at, assets(id, code, location, lat, lng, asset_types(id, code, name, icon)), inspection_photos(id, inspection_id, photo_url)";
 
 export async function queryAssets(): Promise<AssetRow[]> {
   const supabase = await createClient();
@@ -34,13 +39,11 @@ export async function queryInspections(
   const supabase = await createClient();
   const { data, error } = await supabase
     .from("inspections")
-    .select(
-      "*, assets(id, code, location, lat, lng, asset_types(id, code, name, icon)), inspection_photos(id, inspection_id, photo_url)",
-    )
+    .select(INSPECTION_LIST_COLUMNS)
     .order("inspected_at", { ascending: false })
     .limit(limit);
   if (error) throw error;
-  return (data ?? []) as InspectionRow[];
+  return (data ?? []) as unknown as InspectionRow[];
 }
 
 export async function queryInspectionById(
@@ -65,14 +68,12 @@ export async function queryMyInspections(
   const supabase = await createClient();
   const { data, error } = await supabase
     .from("inspections")
-    .select(
-      "*, assets(id, code, location, lat, lng, asset_types(id, code, name, icon)), inspection_photos(id, inspection_id, photo_url)",
-    )
+    .select(INSPECTION_LIST_COLUMNS)
     .eq("inspector_id", inspectorId)
     .order("inspected_at", { ascending: false })
     .limit(limit);
   if (error) throw error;
-  return (data ?? []) as InspectionRow[];
+  return (data ?? []) as unknown as InspectionRow[];
 }
 
 export async function queryAssetById(id: string): Promise<AssetRow | null> {

@@ -1,5 +1,6 @@
 import "server-only";
 
+import { cache } from "react";
 import { redirect } from "next/navigation";
 import { isSupabaseConfigured } from "@/lib/env";
 import { createClient } from "@/lib/supabase/server";
@@ -14,7 +15,8 @@ export interface Viewer {
  * Returns the signed-in user + profile, or null when there is no session
  * (or Supabase has not been configured yet).
  */
-export async function getViewer(): Promise<Viewer | null> {
+/** Cached per request: the layout and the page share a single lookup. */
+export const getViewer = cache(async (): Promise<Viewer | null> => {
   if (!isSupabaseConfigured()) return null;
   try {
     const supabase = await createClient();
@@ -37,7 +39,7 @@ export async function getViewer(): Promise<Viewer | null> {
   } catch {
     return null;
   }
-}
+});
 
 /** Guards a page/layout — redirects to /login when there is no viewer. */
 export async function requireViewer(): Promise<Viewer> {

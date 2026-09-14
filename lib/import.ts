@@ -1,5 +1,3 @@
-import * as XLSX from "xlsx";
-
 /** One parsed row from a task import file. */
 export interface ImportRow {
   line: number; // line in the file (1-based) for error messages
@@ -49,11 +47,13 @@ function looksLikeHeader(row: unknown[]): boolean {
   );
 }
 
-export function parseTaskFile(buffer: ArrayBuffer): ParseResult {
+export async function parseTaskFile(buffer: ArrayBuffer): Promise<ParseResult> {
   const rows: ImportRow[] = [];
   const errors: string[] = [];
   let skippedHeader = false;
 
+  // loaded on demand so the spreadsheet library stays out of the page bundle
+  const XLSX = await import("xlsx");
   const wb = XLSX.read(buffer, { type: "array" });
   const sheetName = wb.SheetNames[0] ?? "";
   const ws = wb.Sheets[sheetName];

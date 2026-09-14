@@ -44,7 +44,7 @@ export function TaskImportDialog({
     setParseErrors([]);
     setFileName(file.name);
     const buffer = await file.arrayBuffer();
-    const parsed = parseTaskFile(buffer);
+    const parsed = await parseTaskFile(buffer);
     setRows(parsed.rows);
     setParseErrors(parsed.errors);
     if (!name) {

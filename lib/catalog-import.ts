@@ -9,7 +9,8 @@
  * (e.g. KETERANGAN / ARM / WATT / TIANG). Level cells are sparse — they only
  * appear when the value changes — so values are forward-filled per column.
  * Prices are always in column G and may be plain numbers or text such as
- * "RM45,000.00/TIANG"; blank means "no price" (the inspector types it or skips).
+ * "RM45,000.00/TIANG"; blank means "no price" (the inspector may type one, else
+ * the price is saved as skipped).
  */
 
 import { matchCatalogAsset } from "@/lib/catalog-data";

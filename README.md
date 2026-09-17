@@ -21,7 +21,7 @@ lights, stop lights, road lamps and more.
 - **Tasks page** (`/dashboard/tasks`): import CSV/Excel batches + list all imported tasks with progress
 - **Task import** (CSV/Excel): `No, ID-Inventory, Position_X(lng), Position_Y(lat), Price, Type, Remarks`
 - **Map dashboard** (desktop): map always visible under the header — colored markers (🔵 not inspected · 🟢 working · 🔴 not working), task selector, total price + asset distribution panel, status panel
-- **Mobile app** with 4 tabs — Map · Task · Record · Profile — and a **QR-scanner/manual** inspection flow: ID-Inventory → photo → **L1 asset → L2–L5 options → L6 price** (auto-filled, manual or skipped) → working? → remarks
+- **Mobile app** with 4 tabs — Map · Task · Record · Profile — and a **QR-scanner/manual** inspection flow: ID-Inventory → photo → **L1 asset → L2–L5 options → L6 price** (auto-filled, optional manual override) → working? → remarks
 - **Price catalog**: L1→L5 structure generated from the *Aset perabot jalan* Excel (`npm run catalog:gen`); prices live in Supabase and are editable/importable at `/dashboard/catalog` (admin)
 - **Desktop header “Mobile” button** opens the inspector app; mobile users get
   back to the dashboard from *Profile → Open desktop dashboard*
@@ -200,9 +200,10 @@ without touching the app code:
    The preview warns about assets/options the app does not know yet (run
    `catalog:gen` + redeploy for those) and how many rows come without a price.
 3. On the phone the **Asset** step shows L1 buttons → cascading L2–L5 chips →
-   the L6 price filled automatically. Combinations without a price let the
-   inspector type it or press **Skip price**; anything not in the list is
-   recorded through **Lain-lain** with a manual description + price.
+   the L6 price filled automatically. Combinations without a price are
+   **skipped by default** — just type a price to fill one in; anything not in
+   the list is recorded through **Lain-lain** with a manual description (and an
+   optional price).
 
 Stored prices show up in the map drawer, the inspections list, the mobile records
 list and the task CSV export (`Price source` = `catalog` / `manual` / `none`).

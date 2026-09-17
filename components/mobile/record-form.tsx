@@ -67,9 +67,6 @@ export function RecordForm({
       ? String(inspection.price)
       : "",
   );
-  const [skipPrice, setSkipPrice] = useState(
-    Boolean(inspection) && inspection?.price === null && !inspection?.price_manual,
-  );
   const [otherName, setOtherName] = useState(inspection?.other_description ?? "");
 
   const [scanning, setScanning] = useState(false);
@@ -144,7 +141,6 @@ export function RecordForm({
     setAssetId(nextId);
     setSelection({ 2: "", 3: "", 4: "", 5: "" });
     setManualPrice("");
-    setSkipPrice(false);
     setError("");
   }
 
@@ -161,15 +157,13 @@ export function RecordForm({
     assetId && assetId !== OTHER ? CATALOG_BY_KEY[assetId] ?? null : null;
   const activeLevels = chosenAsset ? levelsOf(chosenAsset) : [];
   const autoPrice = chosenAsset ? priceFor(chosenAsset.key, activeLevels) : null;
+  /* a typed price overrides the listed one; an empty box means "skipped" */
   const manualPriceNumber = Number(manualPrice.replace(/[^0-9.\-]/g, ""));
-  const effectivePrice =
-    autoPrice !== null
-      ? autoPrice
-      : skipPrice
-        ? null
-        : Number.isFinite(manualPriceNumber) && manualPrice.trim() !== ""
-          ? manualPriceNumber
-          : null;
+  const typedPrice =
+    manualPrice.trim() !== "" && Number.isFinite(manualPriceNumber)
+      ? manualPriceNumber
+      : null;
+  const effectivePrice = typedPrice ?? autoPrice;
 
   async function handleSave() {
     if (!asset) return;
@@ -188,13 +182,6 @@ export function RecordForm({
           setStep(2);
           return;
         }
-      }
-      if (autoPrice === null && !skipPrice && manualPrice.trim() === "") {
-        setError(
-          "This combination has no price in the sheet — enter a price or press Skip price.",
-        );
-        setStep(2);
-        return;
       }
     } else if (!otherName.trim()) {
       setError("Describe the asset (Lain-lain).");
@@ -234,7 +221,7 @@ export function RecordForm({
         l4: isOther ? null : selection[4] || null,
         l5: isOther ? null : selection[5] || null,
         price: effectivePrice,
-        price_manual: autoPrice === null && effectivePrice !== null,
+        price_manual: typedPrice !== null,
         other_description: isOther ? otherName.trim() : null,
       };
 
@@ -468,8 +455,8 @@ export function RecordForm({
 
           {!pricesLoading && prices.length === 0 && (
             <Card className="border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
-              No prices imported yet — pick the values below, then type the price or press{" "}
-              <strong>Skip price</strong>. An admin can import the{" "}
+              No prices imported yet — pick the values below and leave the price empty
+              (it is saved as skipped) or type one. An admin can import the{" "}
               <strong>Aset perabot jalan</strong> sheet from{" "}
               <strong>Dashboard → Catalog</strong>.
             </Card>
@@ -552,33 +539,29 @@ export function RecordForm({
                     {money(autoPrice)}
                   </p>
                   <p className="text-xs text-zinc-500">
-                    Filled automatically from the price list.
+                    From the price list — type below only to override it.
                   </p>
                 </>
               ) : (
-                <>
-                  <p className="rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-800">
-                    This combination has no price in the list — enter it, or skip.
-                  </p>
-                  <input
-                    className={inputCls}
-                    value={manualPrice}
-                    onChange={(e) => setManualPrice(e.target.value)}
-                    placeholder="e.g. 45000"
-                    inputMode="decimal"
-                    disabled={skipPrice}
-                  />
-                  <label className="flex items-center gap-2 text-sm text-zinc-700">
-                    <input
-                      type="checkbox"
-                      checked={skipPrice}
-                      onChange={(e) => setSkipPrice(e.target.checked)}
-                      className="h-4 w-4 rounded border-zinc-300"
-                    />
-                    Skip price
-                  </label>
-                </>
+                <p className="rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-800">
+                  No price for this combination — leave it empty to skip, or type a
+                  price to fill it in.
+                </p>
               )}
+              <input
+                className={inputCls}
+                value={manualPrice}
+                onChange={(e) => setManualPrice(e.target.value)}
+                placeholder={
+                  autoPrice !== null ? "Override price (optional)" : "Price (optional)"
+                }
+                inputMode="decimal"
+              />
+              {typedPrice !== null && autoPrice !== null && typedPrice !== autoPrice ? (
+                <p className="text-xs font-semibold text-amber-700">
+                  Saving {money(typedPrice)} instead of the listed {money(autoPrice)}.
+                </p>
+              ) : null}
             </Card>
           )}
 
@@ -601,27 +584,17 @@ export function RecordForm({
               </div>
               <div>
                 <label className={labelCls} htmlFor="other-price">
-                  Price (manual)
+                  Price (manual, optional)
                 </label>
                 <input
                   id="other-price"
                   className={inputCls}
                   value={manualPrice}
                   onChange={(e) => setManualPrice(e.target.value)}
-                  placeholder="e.g. 300"
+                  placeholder="Leave empty to skip"
                   inputMode="decimal"
-                  disabled={skipPrice}
                 />
               </div>
-              <label className="flex items-center gap-2 text-sm text-zinc-700">
-                <input
-                  type="checkbox"
-                  checked={skipPrice}
-                  onChange={(e) => setSkipPrice(e.target.checked)}
-                  className="h-4 w-4 rounded border-zinc-300"
-                />
-                Skip price
-              </label>
             </Card>
           )}
         </div>
@@ -696,11 +669,7 @@ export function RecordForm({
             <div className="flex justify-between gap-3 border-t border-zinc-100 pt-1.5">
               <span className="text-zinc-500">Price (L6)</span>
               <span className="text-right font-bold text-zinc-900">
-                {effectivePrice !== null
-                  ? money(effectivePrice)
-                  : skipPrice
-                    ? "Skipped"
-                    : "—"}
+                {effectivePrice !== null ? money(effectivePrice) : "Skipped"}
               </span>
             </div>
           </Card>
@@ -736,10 +705,7 @@ export function RecordForm({
                   : assetId === OTHER
                     ? otherName.trim() === ""
                     : !chosenAsset ||
-                      activeLevels.some((l) => !selection[l.level]) ||
-                      (autoPrice === null &&
-                        !skipPrice &&
-                        manualPrice.trim() === "")))
+                      activeLevels.some((l) => !selection[l.level])))
             }
             className="rounded-xl bg-amber-500 px-6 py-2.5 text-sm font-bold text-zinc-950 disabled:cursor-not-allowed disabled:bg-zinc-200 disabled:text-zinc-400"
           >

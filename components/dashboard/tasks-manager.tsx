@@ -14,12 +14,10 @@ export function TasksManager({
   tasks,
   assets,
   isAdmin,
-  inspectorNames = {},
 }: {
   tasks: TaskRow[];
   assets: AssetRow[];
   isAdmin: boolean;
-  inspectorNames?: Record<string, string | null>;
 }) {
   const router = useRouter();
   const [importOpen, setImportOpen] = useState(false);
@@ -49,8 +47,6 @@ export function TasksManager({
       `${task.name.replace(/[^\w-]+/g, "_")}-inspections.csv`,
       buildInspectionCsv({
         assets: taskAssets,
-        taskName: task.name,
-        inspectorNames,
         mode: "latest",
         skipUninspected: false,
       }),

@@ -14,11 +14,9 @@ const ACTIVE_KEY = "rat-active-task";
 export function TaskTabScreen({
   tasks,
   assets,
-  inspectorNames = {},
 }: {
   tasks: TaskRow[];
   assets: AssetRow[];
-  inspectorNames?: Record<string, string | null>;
 }) {
   const [activeTaskId, setActiveTaskId] = useState<string>(() => {
     if (typeof window === "undefined") return tasks[0]?.id ?? "";
@@ -58,7 +56,7 @@ export function TaskTabScreen({
   function exportCsv() {
     downloadFile(
       `${filenameBase()}-inspected.csv`,
-      buildInspectionCsv({ assets: inspected, taskName, inspectorNames, mode: "latest" }),
+      buildInspectionCsv({ assets: inspected, mode: "latest" }),
     );
   }
 
@@ -66,7 +64,7 @@ export function TaskTabScreen({
   function exportHistory() {
     downloadFile(
       `${filenameBase()}-history.csv`,
-      buildInspectionCsv({ assets: inspected, taskName, inspectorNames, mode: "history" }),
+      buildInspectionCsv({ assets: inspected, mode: "history" }),
     );
   }
 

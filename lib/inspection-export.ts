@@ -6,37 +6,26 @@ type TaskInspection = NonNullable<AssetRow["inspections"]>[number];
 /** Every column of the inspection export, in order. */
 export const INSPECTION_EXPORT_HEADER = [
   "No",
-  "Asset code",
   "ID-Inventory",
-  "Task",
-  "Location",
-  "Asset status",
+  "Photo URL",
+  "Latitude",
+  "Longitude",
   "Category",
-  "Level 2 value",
-  "Level 3 value",
-  "Level 4 value",
-  "Level 5 value",
-  "Level 6 value",
+  "L2",
+  "L3",
+  "L4",
+  "L5",
   "Catalog path",
   "Lain-lain",
   "Price",
-  "Price source",
   "Condition",
   "Working",
   "Remarks",
   "Inspected at",
-  "Inspector",
-  "Photo URL",
-  "Inspection ID",
-  "Reports on this marker",
-  "Latitude",
-  "Longitude",
 ];
 
 export interface InspectionExportOptions {
   assets: AssetRow[];
-  taskName?: string;
-  inspectorNames?: Record<string, string | null>;
   /** "latest" = one row per marker · "history" = one row per inspection */
   mode?: "latest" | "history";
   /** set false to also list markers that have not been inspected yet */
@@ -65,50 +54,25 @@ export function catalogPathText(inspection: TaskInspection | null): string {
 export function buildInspectionExportRow(
   asset: AssetRow,
   inspection: TaskInspection | null,
-  options: {
-    taskName?: string;
-    inspectorNames?: Record<string, string | null>;
-    reports?: number;
-  } = {},
 ): Array<string | number | null> {
-  const priceSource = !inspection
-    ? ""
-    : inspection.price_manual
-      ? "manual"
-      : inspection.price === null || inspection.price === undefined
-        ? "none"
-        : "catalog";
-  const inspector = inspection?.inspector_id
-    ? options.inspectorNames?.[inspection.inspector_id] ?? inspection.inspector_id
-    : "";
-
   return [
     asset.seq_no ?? "",
-    asset.code ?? "",
     asset.inventory_id ?? "",
-    options.taskName ?? asset.tasks?.name ?? "",
-    asset.location ?? "",
-    asset.status ?? "",
+    inspection?.photo_url ?? "",
+    asset.lat ?? "",
+    asset.lng ?? "",
     inspection?.asset_category ?? asset.type_text ?? "",
     inspection?.l2 ?? "",
     inspection?.l3 ?? "",
     inspection?.l4 ?? "",
     inspection?.l5 ?? "",
-    inspection?.l6 ?? "",
     catalogPathText(inspection),
     inspection?.other_description ?? "",
     inspection?.price ?? asset.price ?? "",
-    priceSource,
     inspection?.condition ?? "",
     inspection ? (inspection.functional ? "YES" : "NO") : "",
     inspection?.remarks ?? "",
     inspection ? new Date(inspection.inspected_at).toLocaleString() : "",
-    inspector,
-    inspection?.photo_url ?? "",
-    inspection?.id ?? "",
-    options.reports ?? asset.inspections?.length ?? 0,
-    asset.lat ?? "",
-    asset.lng ?? "",
   ];
 }
 
@@ -117,13 +81,7 @@ export function buildInspectionExportRow(
  * report (history), always with every field of the inspection.
  */
 export function buildInspectionCsv(options: InspectionExportOptions): string {
-  const {
-    assets,
-    taskName,
-    inspectorNames,
-    mode = "latest",
-    skipUninspected = true,
-  } = options;
+  const { assets, mode = "latest", skipUninspected = true } = options;
 
   const rows: Array<Array<string | number | null>> = [];
 
@@ -134,32 +92,18 @@ export function buildInspectionCsv(options: InspectionExportOptions): string {
 
     if (mode === "history") {
       for (const inspection of inspections) {
-        rows.push(
-          buildInspectionExportRow(asset, inspection, {
-            taskName,
-            inspectorNames,
-            reports: inspections.length,
-          }),
-        );
+        rows.push(buildInspectionExportRow(asset, inspection));
       }
       continue;
     }
 
     if (inspections.length === 0) {
       if (skipUninspected) continue;
-      rows.push(
-        buildInspectionExportRow(asset, null, { taskName, inspectorNames, reports: 0 }),
-      );
+      rows.push(buildInspectionExportRow(asset, null));
       continue;
     }
 
-    rows.push(
-      buildInspectionExportRow(asset, inspections[0]!, {
-        taskName,
-        inspectorNames,
-        reports: inspections.length,
-      }),
-    );
+    rows.push(buildInspectionExportRow(asset, inspections[0]!));
   }
 
   return buildCsv(INSPECTION_EXPORT_HEADER, rows);

@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { requireViewer } from "@/lib/auth";
 import { describeError } from "@/lib/format";
-import { fetchInspectorNames, queryTaskAssets, queryTasks } from "@/lib/queries";
+import { queryTaskAssets, queryTasks } from "@/lib/queries";
 import { TasksManager } from "@/components/dashboard/tasks-manager";
 
 export const dynamic = "force-dynamic";
@@ -14,16 +14,8 @@ export default async function DashboardTasksPage() {
   let dbError: string | null = null;
   let tasks: Awaited<ReturnType<typeof queryTasks>> = [];
   let assets: Awaited<ReturnType<typeof queryTaskAssets>> = [];
-  let inspectorNames: Record<string, string | null> = {};
   try {
-    const [taskRows, assetRows, names] = await Promise.all([
-      queryTasks(),
-      queryTaskAssets(),
-      fetchInspectorNames(),
-    ]);
-    tasks = taskRows;
-    assets = assetRows;
-    inspectorNames = Object.fromEntries(names);
+    [tasks, assets] = await Promise.all([queryTasks(), queryTaskAssets()]);
   } catch (err) {
     dbError = describeError(err);
   }
@@ -36,12 +28,5 @@ export default async function DashboardTasksPage() {
     );
   }
 
-  return (
-    <TasksManager
-      tasks={tasks}
-      assets={assets}
-      isAdmin={isAdmin}
-      inspectorNames={inspectorNames}
-    />
-  );
+  return <TasksManager tasks={tasks} assets={assets} isAdmin={isAdmin} />;
 }

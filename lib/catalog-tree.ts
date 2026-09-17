@@ -201,6 +201,40 @@ export function pathSteps(
   }));
 }
 
+/**
+ * Rebuild the chain a saved report picked, so an existing/re-inspected record opens
+ * with its chips already selected:
+ * 1. by `option_id` while the snapshot still matches the catalog,
+ * 2. otherwise by matching the level texts (`values` = l2…l6) of older records.
+ */
+export function selectionFromSnapshot(
+  asset: CatalogAssetTree,
+  steps: CatalogPathStep[] | null | undefined,
+  values: (string | null | undefined)[],
+): Record<number, string> {
+  const next: Record<number, string> = {};
+  for (const step of steps ?? []) {
+    if (step.option_id && asset.optionById.has(step.option_id)) {
+      next[step.level_no] = step.option_id;
+    }
+  }
+  if (Object.keys(next).length > 0) return next;
+
+  let parentId: string | null = null;
+  values.forEach((text, index) => {
+    if (!text) return;
+    const level = index + 2;
+    const match = childrenOf(asset, parentId).find(
+      (option) => option.value.toLowerCase() === text.toLowerCase(),
+    );
+    if (match) {
+      next[level] = match.id;
+      parentId = match.id;
+    }
+  });
+  return next;
+}
+
 /** Every root → leaf combination of an asset, with its price. */
 export function combinations(
   asset: CatalogAssetTree,

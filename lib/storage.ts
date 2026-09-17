@@ -80,3 +80,15 @@ export async function deleteInspectionPhoto(
     /* the row is what matters; a leftover object is harmless */
   }
 }
+
+/**
+ * A photo may be shared: re-inspecting a marker carries the last report's photo
+ * into the new one. So only objects **uploaded during this visit** may be deleted
+ * when the inspector swaps or removes the photo — an older report keeps its file.
+ */
+export function isSessionUpload(
+  path: string | null | undefined,
+  uploadedThisVisit: readonly string[],
+): boolean {
+  return Boolean(path) && uploadedThisVisit.includes(path as string);
+}

@@ -20,6 +20,8 @@ export default async function UpsertPage({
 
   let asset: Awaited<ReturnType<typeof queryAssetWithInspectionsById>> = null;
   let inspection: Awaited<ReturnType<typeof queryInspectionById>> = null;
+  /** the marker's latest report — used to pre-fill a fresh re-inspection */
+  let previous: Awaited<ReturnType<typeof queryInspectionById>> = null;
   let dbError: string | null = null;
 
   try {
@@ -30,6 +32,12 @@ export default async function UpsertPage({
       }
     } else if (assetId) {
       asset = await queryAssetWithInspectionsById(assetId);
+      const latest = asset?.inspections?.length
+        ? [...asset.inspections].sort((a, b) =>
+            b.inspected_at.localeCompare(a.inspected_at),
+          )[0]
+        : null;
+      if (latest?.id) previous = await queryInspectionById(latest.id);
     }
 
     if ((assetId && !asset) || (inspectionId && !inspection)) notFound();
@@ -49,6 +57,7 @@ export default async function UpsertPage({
     <RecordForm
       asset={asset}
       inspection={inspection}
+      previous={previous}
       username={viewer.profile.username}
     />
   );

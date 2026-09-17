@@ -143,7 +143,7 @@ export async function queryAssetWithInspectionsById(
   const supabase = await createClient();
   const { data, error } = await supabase
     .from("assets")
-    .select("*, inspections(id, functional, inspected_at, photo_webp)")
+    .select("*, inspections(id, functional, inspected_at)")
     .eq("id", id)
     .maybeSingle();
   if (error) throw error;

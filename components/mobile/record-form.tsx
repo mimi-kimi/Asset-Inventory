@@ -7,9 +7,9 @@ import { Camera, CheckCircle2, Loader2, Save } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { PHOTO_BUCKET } from "@/lib/env";
 import { fileToWebpBlob } from "@/lib/image";
-import { deleteInspectionPhoto, uploadInspectionPhoto } from "@/lib/storage";
+import { deleteInspectionPhoto, isSessionUpload, uploadInspectionPhoto } from "@/lib/storage";
 import type { UploadedPhoto } from "@/lib/storage";
-import { CONDITION_META, CONDITION_ORDER, cn, normalizeCondition } from "@/lib/format";
+import { CONDITION_META, CONDITION_ORDER, cn, fmtDateTime, normalizeCondition } from "@/lib/format";
 import type {
   AssetRow,
   CatalogAssetRow,
@@ -27,6 +27,7 @@ import {
   MAX_LEVEL,
   pathSteps,
   priceHeading,
+  selectionFromSnapshot,
   selectionPath,
 } from "@/lib/catalog-tree";
 import type { CatalogAssetTree } from "@/lib/catalog-tree";
@@ -44,55 +45,65 @@ function money(n: number | null | undefined): string {
 export function RecordForm({
   asset,
   inspection,
+  previous,
   username,
 }: {
   asset: AssetRow | null;
   inspection: InspectionRow | null;
+  /** the marker's last report — seeds a re-inspection without touching that row */
+  previous?: InspectionRow | null;
   username?: string | null;
 }) {
   const router = useRouter();
   const supabase = createClient();
 
+  /* ---------- what the form starts from ----------
+   * inspection → we are editing that report in place ("Save changes")
+   * previous   → re-inspecting: every answer is carried over, saving adds a report
+   */
+  const seed = inspection ?? previous ?? null;
+  const isEdit = Boolean(inspection);
+
   /* ---------- wizard state ---------- */
-  const [step, setStep] = useState(inspection ? 1 : 0);
+  /* the ID step is skipped for any marker that already has a report */
+  const [step, setStep] = useState(seed ? 1 : 0);
   const [inventoryId, setInventoryId] = useState(asset?.inventory_id ?? "");
   /* ---------- photo: downscaled WebP uploaded to Storage, URL on the row ---------- */
   const [photoPreview, setPhotoPreview] = useState<string | null>(
-    inspection?.photo_url ?? inspection?.photo_webp ?? null,
+    seed?.photo_url ?? seed?.photo_webp ?? null,
   );
   const [photoUpload, setPhotoUpload] = useState<UploadedPhoto | null>(
-    inspection?.photo_url
-      ? { url: inspection.photo_url, path: inspection.photo_path ?? "" }
-      : null,
+    seed?.photo_url ? { url: seed.photo_url, path: seed.photo_path ?? "" } : null,
   );
   const [photoBusy, setPhotoBusy] = useState(false);
   const [photoError, setPhotoError] = useState("");
   /** true once the inspector removed the photo (so legacy base64 is dropped too) */
   const [photoCleared, setPhotoCleared] = useState(false);
-  const [working, setWorking] = useState(inspection?.functional ?? true);
+  const [working, setWorking] = useState(seed?.functional ?? true);
   const [condition, setCondition] = useState<Condition>(() =>
-    normalizeCondition(inspection?.condition),
+    normalizeCondition(seed?.condition),
   );
-  const [remarks, setRemarks] = useState(inspection?.remarks ?? "");
+  const [remarks, setRemarks] = useState(seed?.remarks ?? "");
 
   /* ---------- catalog: assets → levels → values (+ the price of a combination) ---------- */
   const [catalogAssets, setCatalogAssets] = useState<CatalogAssetRow[]>([]);
   const [catalogLoading, setCatalogLoading] = useState(true);
   const [assetId, setAssetId] = useState<string>(
-    inspection?.catalog_asset_id ?? "",
+    /* a Lain-lain report has no catalog asset, so re-open it on the Lain-lain chip */
+    seed?.catalog_asset_id ?? (seed?.other_description ? OTHER : ""),
   );
   const [assetTree, setAssetTree] = useState<CatalogAssetTree | null>(null);
   const [loadedAssetId, setLoadedAssetId] = useState("");
   const [selection, setSelection] = useState<Record<number, string>>({});
   const prefillRef = useRef(false);
+  /** Storage objects uploaded during this visit — the only ones we are allowed to delete */
+  const sessionUploads = useRef<string[]>([]);
   const [manualPrice, setManualPrice] = useState(
-    inspection?.price_manual &&
-      inspection.price !== null &&
-      inspection.price !== undefined
-      ? String(inspection.price)
+    seed?.price_manual && seed.price !== null && seed.price !== undefined
+      ? String(seed.price)
       : "",
   );
-  const [otherName, setOtherName] = useState(inspection?.other_description ?? "");
+  const [otherName, setOtherName] = useState(seed?.other_description ?? "");
 
   const [scanning, setScanning] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -147,37 +158,18 @@ export function RecordForm({
         const tree = buildTree(data).assets[0] ?? null;
         setAssetTree(tree);
 
-        /* editing an existing record: rebuild the picked chain */
-        if (tree && inspection && !prefillRef.current) {
+        /* a record being edited, or a re-inspection: rebuild the picked chain */
+        if (tree && seed && !prefillRef.current) {
           prefillRef.current = true;
-          const next: Record<number, string> = {};
-          for (const step of inspection.catalog_path ?? []) {
-            if (step.option_id && tree.optionById.has(step.option_id)) {
-              next[step.level_no] = step.option_id;
-            }
-          }
-          if (Object.keys(next).length === 0) {
-            const texts = [
-              inspection.l2,
-              inspection.l3,
-              inspection.l4,
-              inspection.l5,
-              inspection.l6,
-            ];
-            let parentId: string | null = null;
-            texts.forEach((text, index) => {
-              if (!text) return;
-              const level = index + 2;
-              const match = childrenOf(tree, parentId).find(
-                (option) => option.value.toLowerCase() === text.toLowerCase(),
-              );
-              if (match) {
-                next[level] = match.id;
-                parentId = match.id;
-              }
-            });
-          }
-          setSelection(next);
+          setSelection(
+            selectionFromSnapshot(tree, seed.catalog_path, [
+              seed.l2,
+              seed.l3,
+              seed.l4,
+              seed.l5,
+              seed.l6,
+            ]),
+          );
         }
       } catch {
         if (alive) setAssetTree(null);
@@ -189,9 +181,7 @@ export function RecordForm({
       alive = false;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [assetId, catalogAssets.length, inspection]);
-
-/*__RF_DERIVED__*/
+  }, [assetId, catalogAssets.length, seed]);
 
   /* ---------- derived: cascade, price and summary ---------- */
   /** only trust the fetched tree when it belongs to the currently picked asset */
@@ -236,7 +226,7 @@ export function RecordForm({
     setError("");
     setPhotoError("");
     setPhotoBusy(true);
-    const previous = photoUpload;
+    const current = photoUpload;
     try {
       /* 1. shrink to ~1280 px WebP  2. upload  3. keep the public URL */
       const photo = await fileToWebpBlob(file);
@@ -246,10 +236,17 @@ export function RecordForm({
         username,
         assetSeq: asset?.seq_no ?? asset?.code ?? null,
       });
+      sessionUploads.current.push(uploaded.path);
       setPhotoUpload(uploaded);
       setPhotoCleared(false);
-      if (previous?.path && previous.path !== uploaded.path) {
-        void deleteInspectionPhoto(supabase, previous.path);
+      /* only throw away a photo this visit uploaded — an older report keeps its own */
+      const replaced = current?.path;
+      if (
+        replaced &&
+        replaced !== uploaded.path &&
+        isSessionUpload(replaced, sessionUploads.current)
+      ) {
+        void deleteInspectionPhoto(supabase, replaced);
       }
     } catch (err) {
       setPhotoError(
@@ -266,7 +263,11 @@ export function RecordForm({
     setPhotoPreview(null);
     setPhotoError("");
     setPhotoCleared(true);
-    if (current?.path) void deleteInspectionPhoto(supabase, current.path);
+    /* a carried-over photo belongs to the earlier report — never delete it */
+    const dropped = current?.path;
+    if (dropped && isSessionUpload(dropped, sessionUploads.current)) {
+      void deleteInspectionPhoto(supabase, dropped);
+    }
   }
 
   function chooseAsset(nextId: string) {
@@ -404,7 +405,8 @@ export function RecordForm({
         <p className="text-2xl">🗺️</p>
         <p className="mt-2 font-bold text-zinc-900">No marker selected</p>
         <p className="mt-1 text-sm text-zinc-500">
-          Open the Map tab and tap a marker, then press Inspect or Edit.
+          Open the Map tab, tap a marker and press Inspect this marker — or, if it already
+          has a report, Edit this report.
         </p>
         <Link href="/mobile" className={cn(btnSecondary, "mt-4")}>
           Back to map
@@ -418,13 +420,18 @@ export function RecordForm({
       <Card className="p-8 text-center">
         <CheckCircle2 className="mx-auto h-16 w-16 text-emerald-500" />
         <h2 className="mt-3 text-2xl font-bold text-zinc-900">
-          {inspection ? "Record updated!" : "Record saved!"}
+          {isEdit ? "Record updated!" : "Record saved!"}
         </h2>
         <p className="mt-1 text-sm text-zinc-500">
           {inventoryId || asset.inventory_id || "No ID-Inventory"} —{" "}
           {assetId === OTHER ? otherName : activeAsset?.name ?? "—"}
           {effectivePrice !== null ? ` · ${money(effectivePrice)}` : ""}
         </p>
+        {!isEdit && previous && (
+          <p className="mt-2 text-xs text-zinc-400">
+            Your earlier report from {fmtDateTime(previous.inspected_at)} is still in the history.
+          </p>
+        )}
         <div className="mt-6 flex flex-col gap-2">
           <button
             type="button"
@@ -443,6 +450,38 @@ export function RecordForm({
 
   return (
     <div className="space-y-4 px-4 pt-4">
+      {seed && (
+        <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-xs leading-relaxed text-amber-900">
+          {isEdit ? (
+            <>
+              <strong>Editing your report</strong> from {fmtDateTime(seed.inspected_at)}. Change only
+              what is different, then press <strong>Save changes</strong>.
+            </>
+          ) : (
+            <>
+              <strong>Pre-filled from your last report</strong> (
+              {fmtDateTime(seed.inspected_at)}). Change only what is different, then press{" "}
+              <strong>Save record</strong>.{" "}
+              <Link
+                href={`/mobile/record/upsert?inspection=${seed.id}`}
+                className="font-bold underline"
+              >
+                Update that report instead
+              </Link>
+            </>
+          )}{" "}
+          {step < STEPS.length - 1 && (
+            <button
+              type="button"
+              onClick={() => setStep(STEPS.length - 1)}
+              disabled={busy}
+              className="font-bold underline"
+            >
+              Skip to {STEPS[STEPS.length - 1]}
+            </button>
+          )}
+        </div>
+      )}
       <ol className="flex items-center gap-1">
         {STEPS.map((label, idx) => {
           const state = idx < step ? "done" : idx === step ? "current" : "todo";
@@ -905,7 +944,7 @@ export function RecordForm({
             ) : (
               <Save className="h-4 w-4" />
             )}
-            {busy ? "Saving…" : inspection ? "Save changes" : "Save record"}
+            {busy ? "Saving…" : isEdit ? "Save changes" : "Save record"}
           </button>
         )}
       </div>

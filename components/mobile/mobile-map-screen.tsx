@@ -5,6 +5,7 @@ import Link from "next/link";
 import { ChevronDown, Layers, X } from "lucide-react";
 import { cn } from "@/lib/format";
 import { MARKER_META, markerState } from "@/lib/marker";
+import { latestInspection } from "@/lib/inspection-export";
 import type { AssetRow, TaskRow } from "@/lib/types";
 import { MarkersMap, MarkerLegend } from "@/components/map/markers-map";
 import type { MapPoint } from "@/components/map/markers-map";
@@ -33,6 +34,9 @@ export function MobileMapScreen({
   }, [activeTaskId]);
 
   const activeTask = tasks.find((t) => t.id === activeTaskId) ?? null;
+
+  /** newest report of the tapped marker — the drawer edits that one */
+  const selectedReport = selected ? latestInspection(selected) : null;
 
   const visibleAssets = useMemo(
     () => (activeTask ? assets.filter((a) => a.task_id === activeTask.id) : []),
@@ -198,12 +202,29 @@ export function MobileMapScreen({
                   {selected.notes}
                 </p>
               )}
-              <Link
-                href={`/mobile/record/upsert?asset=${selected.id}`}
-                className="mt-3 flex w-full items-center justify-center rounded-xl bg-amber-500 px-5 py-3 text-sm font-bold text-zinc-950 active:scale-[0.99]"
-              >
-                {markerState(selected) === "todo" ? "Inspect" : "Edit"} this marker
-              </Link>
+              {selectedReport ? (
+                <>
+                  <Link
+                    href={`/mobile/record/upsert?inspection=${selectedReport.id}`}
+                    className="mt-3 flex w-full items-center justify-center rounded-xl bg-amber-500 px-5 py-3 text-sm font-bold text-zinc-950 active:scale-[0.99]"
+                  >
+                    Edit this report
+                  </Link>
+                  <Link
+                    href={`/mobile/record/upsert?asset=${selected.id}`}
+                    className="mt-2 flex w-full items-center justify-center rounded-xl border border-zinc-300 bg-white px-5 py-2.5 text-sm font-semibold text-zinc-700 active:scale-[0.99]"
+                  >
+                    Add a new report
+                  </Link>
+                </>
+              ) : (
+                <Link
+                  href={`/mobile/record/upsert?asset=${selected.id}`}
+                  className="mt-3 flex w-full items-center justify-center rounded-xl bg-amber-500 px-5 py-3 text-sm font-bold text-zinc-950 active:scale-[0.99]"
+                >
+                  Inspect this marker
+                </Link>
+              )}
             </div>
           </div>
         )}

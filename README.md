@@ -230,6 +230,21 @@ The last step records the **working / not working** status, then the **condition
 (**Good · Fair · Bad**, default Good) and free-text remarks. Older records that used
 the previous five-value scale are folded onto Good/Fair/Bad when they are opened.
 
+### Re-inspecting a marker
+Nobody re-types a marker from scratch. Tapping a marker that already has a report
+opens a drawer with two actions:
+
+| Drawer action | What it does |
+| --- | --- |
+| **Edit this report** | opens the newest report for that marker with every answer already in place — photo, catalog chips, price, working, condition, remarks — and **updates that same row** (`Save changes`) |
+| **Add a new report** | only for markers never inspected, or when a fresh visit must be kept next to the old one: the new form is **pre-filled from the last report**, saves as a new row, and the earlier report stays in the history |
+
+Either way the **ID step is skipped** and the wizard starts on the **Photo** step
+(the earlier photo is shown, so it is only changed if needed), with a banner saying
+where the values came from. The **Record** tab's list and the desktop drawer keep
+the same behaviour — a saved photo is never deleted while an older report still
+points at it.
+
 Prices show up in the map drawer, the inspections list, the mobile records list
 and the CSV exports (the drawer and lists tag a price that was typed on site as
 `manual`).

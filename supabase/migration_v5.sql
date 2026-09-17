@@ -1,54 +1,57 @@
 -- ============================================================
 -- Road Asset Tracker — v5 migration
--- Aset perabot jalan price catalog (L1 asset → L2..L5 options → L6 price)
--- Run after schema.sql / v2 / v3 / v4 in the Supabase SQL editor.
--- Safe to re-run (everything is IF NOT EXISTS).
+-- Price catalog for the "Aset perabot jalan" inventory.
+--
+-- The L1..L5 *structure* (assets, level labels, selectable options) is
+-- hardcoded in `lib/catalog-data.ts`, so only PRICES live in the database and
+-- admins can update them from Dashboard → Catalog without a redeploy.
+--
+-- Run after schema.sql / migration_v2.sql / migration_v3.sql / migration_v4.sql
+-- in the Supabase SQL editor. Safe to re-run (imported prices are preserved).
 -- ============================================================
 
-create table if not exists public.catalog_assets (
-  id uuid primary key default gen_random_uuid(),
-  name text not null unique,
-  sort_order integer not null default 0,
-  created_at timestamptz not null default now()
-);
+-- Clean up the first draft of this migration, if it was already applied:
+-- back then `catalog_prices` was keyed by a `catalog_assets` UUID foreign key.
+do $$
+begin
+  if exists (
+    select 1
+    from information_schema.columns
+    where table_schema = 'public'
+      and table_name = 'catalog_prices'
+      and column_name = 'asset_id'
+  ) then
+    drop table public.catalog_prices cascade;
+  end if;
+end $$;
 
--- level labels per asset (e.g. LAMPU JALAN → L2 = KETERANGAN, L3 = ARM, …)
-create table if not exists public.catalog_levels (
-  id uuid primary key default gen_random_uuid(),
-  asset_id uuid not null references public.catalog_assets(id) on delete cascade,
-  level_no integer not null check (level_no between 2 and 5),
-  label text not null,
-  unique (asset_id, level_no)
-);
+drop table if exists public.catalog_options cascade;
+drop table if exists public.catalog_levels cascade;
+drop table if exists public.catalog_assets cascade;
+alter table public.inspections drop column if exists catalog_asset_id;
 
--- selectable values per level (feeds the cascading lists in the app)
-create table if not exists public.catalog_options (
-  id uuid primary key default gen_random_uuid(),
-  asset_id uuid not null references public.catalog_assets(id) on delete cascade,
-  level_no integer not null check (level_no between 2 and 5),
-  value text not null,
-  unique (asset_id, level_no, value)
-);
-
--- price for each L1..L5 combination (price may be null → inspector types it or skips)
+-- One row per L1..L5 combination; `asset_key` matches lib/catalog-data.ts
+-- (e.g. 'lampu-jalan'). Level columns are '' (never NULL) so the unique key
+-- and upserts work for assets that only use L2.
 create table if not exists public.catalog_prices (
   id uuid primary key default gen_random_uuid(),
-  asset_id uuid not null references public.catalog_assets(id) on delete cascade,
-  l2 text,
-  l3 text,
-  l4 text,
-  l5 text,
+  asset_key text not null,
+  l2 text not null default '',
+  l3 text not null default '',
+  l4 text not null default '',
+  l5 text not null default '',
   price numeric(14,2),
   raw_price text,
-  unique (asset_id, l2, l3, l4, l5)
+  updated_at timestamptz not null default now(),
+  unique (asset_key, l2, l3, l4, l5)
 );
 
-create index if not exists catalog_prices_lookup_idx
-  on public.catalog_prices (asset_id, l2, l3, l4, l5);
+create index if not exists catalog_prices_asset_idx
+  on public.catalog_prices (asset_key);
 
--- what the inspector picked during an inspection (L1..L6 snapshot)
+-- L1..L6 snapshot of what the inspector picked (kept even if prices change).
 alter table public.inspections
-  add column if not exists catalog_asset_id uuid references public.catalog_assets(id) on delete set null,
+  add column if not exists catalog_asset_key text,
   add column if not exists asset_category text,
   add column if not exists l2 text,
   add column if not exists l3 text,
@@ -58,36 +61,13 @@ alter table public.inspections
   add column if not exists price_manual boolean not null default false,
   add column if not exists other_description text;
 
--- RLS: catalog readable by every signed-in user, writable by admins only
-alter table public.catalog_assets enable row level security;
-alter table public.catalog_levels enable row level security;
-alter table public.catalog_options enable row level security;
+-- RLS: prices readable by every signed-in user, writable by admins only.
 alter table public.catalog_prices enable row level security;
-
-drop policy if exists "read catalog assets" on public.catalog_assets;
-create policy "read catalog assets" on public.catalog_assets
-  for select to authenticated using (true);
-drop policy if exists "admin manages catalog assets" on public.catalog_assets;
-create policy "admin manages catalog assets" on public.catalog_assets
-  for all to authenticated using (public.is_admin()) with check (public.is_admin());
-
-drop policy if exists "read catalog levels" on public.catalog_levels;
-create policy "read catalog levels" on public.catalog_levels
-  for select to authenticated using (true);
-drop policy if exists "admin manages catalog levels" on public.catalog_levels;
-create policy "admin manages catalog levels" on public.catalog_levels
-  for all to authenticated using (public.is_admin()) with check (public.is_admin());
-
-drop policy if exists "read catalog options" on public.catalog_options;
-create policy "read catalog options" on public.catalog_options
-  for select to authenticated using (true);
-drop policy if exists "admin manages catalog options" on public.catalog_options;
-create policy "admin manages catalog options" on public.catalog_options
-  for all to authenticated using (public.is_admin()) with check (public.is_admin());
 
 drop policy if exists "read catalog prices" on public.catalog_prices;
 create policy "read catalog prices" on public.catalog_prices
   for select to authenticated using (true);
+
 drop policy if exists "admin manages catalog prices" on public.catalog_prices;
 create policy "admin manages catalog prices" on public.catalog_prices
   for all to authenticated using (public.is_admin()) with check (public.is_admin());

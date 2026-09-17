@@ -10,6 +10,7 @@ import { Card } from "@/components/ui";
 import { MarkersMap, MarkerLegend } from "@/components/map/markers-map";
 import type { MapPoint } from "@/components/map/markers-map";
 import { createClient } from "@/lib/supabase/client";
+import { CATALOG_BY_KEY, matchCatalogAsset } from "@/lib/catalog-data";
 
 const ACTIVE_KEY = "rat-active-task";
 
@@ -77,39 +78,7 @@ export function DashboardWorkspace({
     drawerRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
   }, [selected]);
 
-  /* catalog level labels, so the drawer can show "L2 · KETERANGAN" */
-  const [catalogLabels, setCatalogLabels] = useState<
-    Map<string, Record<number, string>>
-  >(new Map());
-  useEffect(() => {
-    let alive = true;
-    (async () => {
-      const supabase = createClient();
-      const [a, l] = await Promise.all([
-        supabase.from("catalog_assets").select("id, name"),
-        supabase.from("catalog_levels").select("asset_id, level_no, label"),
-      ]);
-      if (!alive) return;
-      const byId = new Map<string, Record<number, string>>();
-      for (const lv of (l.data ?? []) as {
-        asset_id: string;
-        level_no: number;
-        label: string;
-      }[]) {
-        const entry = byId.get(lv.asset_id) ?? {};
-        entry[lv.level_no] = lv.label;
-        byId.set(lv.asset_id, entry);
-      }
-      const byName = new Map<string, Record<number, string>>();
-      for (const item of (a.data ?? []) as { id: string; name: string }[]) {
-        byName.set(item.name, byId.get(item.id) ?? {});
-      }
-      setCatalogLabels(byName);
-    })().catch(() => {});
-    return () => {
-      alive = false;
-    };
-  }, []);
+  /* catalog level labels come from the hardcoded structure (lib/catalog-data) */
 
   /** fetch full marker detail (incl. latest inspection photo) on click */
   async function selectMarker(id: string) {
@@ -121,7 +90,7 @@ export function DashboardWorkspace({
       const { data } = await createClient()
         .from("assets")
         .select(
-          "*, inspections(id, functional, inspected_at, photo_webp, price, price_manual, asset_category, l2, l3, l4, l5, other_description)",
+          "*, inspections(id, functional, inspected_at, photo_webp, price, price_manual, catalog_asset_key, asset_category, l2, l3, l4, l5, other_description)",
         )
         .eq("id", id)
         .maybeSingle();
@@ -438,9 +407,10 @@ export function DashboardWorkspace({
               {([2, 3, 4, 5] as const).map((lvl) => {
                 const value = latestInspection?.[`l${lvl}` as "l2" | "l3" | "l4" | "l5"];
                 if (!value) return null;
-                const label = catalogLabels.get(
-                  latestInspection?.asset_category ?? "",
-                )?.[lvl];
+                const def = latestInspection?.catalog_asset_key
+                  ? CATALOG_BY_KEY[latestInspection.catalog_asset_key]
+                  : matchCatalogAsset(latestInspection?.asset_category);
+                const label = def?.labels[lvl];
                 return (
                   <div key={lvl} className="flex justify-between gap-3">
                     <dt className="text-xs font-semibold text-zinc-400">

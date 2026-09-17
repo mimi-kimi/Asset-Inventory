@@ -7,14 +7,13 @@ import { Camera, CheckCircle2, Loader2, Save } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { fileToWebpDataUrl } from "@/lib/image";
 import { cn } from "@/lib/format";
-import type {
-  AssetRow,
-  AssetType,
-  CatalogAsset,
-  CatalogData,
-  CatalogPriceRow,
-  InspectionRow,
-} from "@/lib/types";
+import type { AssetRow, AssetType, CatalogPrice, InspectionRow } from "@/lib/types";
+import {
+  CATALOG_ASSETS,
+  CATALOG_BY_KEY,
+  levelsOf,
+  matchCatalogAsset,
+} from "@/lib/catalog-data";
 import { btnSecondary, Card, inputCls, labelCls } from "@/components/ui";
 import { QrScannerOverlay } from "@/components/mobile/qr-scanner";
 
@@ -47,16 +46,13 @@ export function RecordForm({
   const [working, setWorking] = useState(inspection?.functional ?? true);
   const [remarks, setRemarks] = useState(inspection?.remarks ?? "");
 
-  /* ---------- catalog state ---------- */
-  const [catalog, setCatalog] = useState<CatalogData>({
-    assets: [],
-    levels: [],
-    options: [],
-    prices: [],
-  });
-  const [catalogLoading, setCatalogLoading] = useState(true);
+  /* ---------- prices (structure comes from lib/catalog-data.ts) ---------- */
+  const [prices, setPrices] = useState<CatalogPrice[]>([]);
+  const [pricesLoading, setPricesLoading] = useState(true);
   const [assetId, setAssetId] = useState<string>(
-    inspection?.catalog_asset_id ?? "",
+    inspection?.catalog_asset_key ??
+      matchCatalogAsset(inspection?.asset_category)?.key ??
+      "",
   );
   const [selection, setSelection] = useState<Record<number, string>>({
     2: inspection?.l2 ?? "",
@@ -81,33 +77,20 @@ export function RecordForm({
   const [error, setError] = useState("");
   const [done, setDone] = useState(false);
 
-  /* ---------- load the price catalog once ---------- */
+  /* ---------- load the stored prices once ---------- */
   useEffect(() => {
     let alive = true;
     (async () => {
       try {
-        const [a, l, o, p] = await Promise.all([
-          supabase
-            .from("catalog_assets")
-            .select("id, name, sort_order")
-            .order("sort_order"),
-          supabase.from("catalog_levels").select("asset_id, level_no, label"),
-          supabase.from("catalog_options").select("asset_id, level_no, value"),
-          supabase
-            .from("catalog_prices")
-            .select("id, asset_id, l2, l3, l4, l5, price, raw_price"),
-        ]);
+        const { data } = await supabase
+          .from("catalog_prices")
+          .select("id, asset_key, l2, l3, l4, l5, price");
         if (!alive) return;
-        setCatalog({
-          assets: (a.data ?? []) as CatalogAsset[],
-          levels: (l.data ?? []) as CatalogData["levels"],
-          options: (o.data ?? []) as CatalogData["options"],
-          prices: (p.data ?? []) as CatalogPriceRow[],
-        });
+        setPrices((data ?? []) as CatalogPrice[]);
       } catch {
-        /* catalog not imported yet — the Asset step explains what to do */
+        /* prices not imported yet — the Asset step asks for a manual price */
       } finally {
-        if (alive) setCatalogLoading(false);
+        if (alive) setPricesLoading(false);
       }
     })();
     return () => {
@@ -117,49 +100,24 @@ export function RecordForm({
   }, []);
 
   /* ---------- derived catalog helpers ---------- */
-  const levelsFor = (id: string): { level: number; label: string }[] =>
-    catalog.levels
-      .filter((l) => l.asset_id === id)
-      .map((l) => ({ level: l.level_no, label: l.label }))
-      .sort((x, y) => x.level - y.level);
-
-  /** options for a level, filtered by everything chosen above it */
+  /** selectable values for a level (hardcoded structure) */
   function optionsFor(assetKey: string, level: number): string[] {
-    const out = new Set<string>();
-    for (const row of catalog.prices) {
-      if (row.asset_id !== assetKey) continue;
-      let matches = true;
-      for (let k = 2; k < level; k += 1) {
-        const chosen = selection[k] ?? "";
-        const value = (row[`l${k}` as "l2" | "l3" | "l4" | "l5"] ?? "") as string;
-        if (value !== chosen) {
-          matches = false;
-          break;
-        }
-      }
-      if (!matches) continue;
-      const value = row[`l${level as 2 | 3 | 4 | 5}`] as string | null;
-      if (value) out.add(value);
-    }
-    if (level === 2 && out.size === 0) {
-      for (const o of catalog.options) {
-        if (o.asset_id === assetKey && o.level_no === 2) out.add(o.value);
-      }
-    }
-    return [...out];
+    const def = CATALOG_BY_KEY[assetKey];
+    if (!def) return [];
+    return [...(def.options[level as 2 | 3 | 4 | 5] ?? [])];
   }
 
-  /** price for the whole L1..L5 combination (null = not in the sheet) */
+  /** price for the whole L1..L5 combination (null = not in the price table) */
   function priceFor(assetKey: string, levels: { level: number }[]): number | null {
     const wanted = (k: number) =>
       levels.some((l) => l.level === k) ? selection[k] ?? "" : "";
-    const row = catalog.prices.find(
-      (r) =>
-        r.asset_id === assetKey &&
-        (r.l2 ?? "") === wanted(2) &&
-        (r.l3 ?? "") === wanted(3) &&
-        (r.l4 ?? "") === wanted(4) &&
-        (r.l5 ?? "") === wanted(5),
+    const row = prices.find(
+      (p) =>
+        p.asset_key === assetKey &&
+        p.l2 === wanted(2) &&
+        p.l3 === wanted(3) &&
+        p.l4 === wanted(4) &&
+        p.l5 === wanted(5),
     );
     return row ? row.price : null;
   }
@@ -200,11 +158,9 @@ export function RecordForm({
   }
 
   const chosenAsset =
-    assetId && assetId !== OTHER
-      ? catalog.assets.find((a) => a.id === assetId) ?? null
-      : null;
-  const activeLevels = chosenAsset ? levelsFor(chosenAsset.id) : [];
-  const autoPrice = chosenAsset ? priceFor(chosenAsset.id, activeLevels) : null;
+    assetId && assetId !== OTHER ? CATALOG_BY_KEY[assetId] ?? null : null;
+  const activeLevels = chosenAsset ? levelsOf(chosenAsset) : [];
+  const autoPrice = chosenAsset ? priceFor(chosenAsset.key, activeLevels) : null;
   const manualPriceNumber = Number(manualPrice.replace(/[^0-9.\-]/g, ""));
   const effectivePrice =
     autoPrice !== null
@@ -271,7 +227,7 @@ export function RecordForm({
       if (assetError) throw assetError;
 
       const catalogFields = {
-        catalog_asset_id: isOther ? null : chosenAsset!.id,
+        catalog_asset_key: isOther ? null : chosenAsset!.key,
         asset_category: category,
         l2: isOther ? null : selection[2] || null,
         l3: isOther ? null : selection[3] || null,
@@ -506,14 +462,15 @@ export function RecordForm({
       )}
       {step === 2 && (
         <div className="space-y-3">
-          {catalogLoading && (
-            <Card className="p-4 text-sm text-zinc-500">Loading price catalog…</Card>
+          {pricesLoading && (
+            <Card className="p-3 text-xs text-zinc-500">Loading stored prices…</Card>
           )}
 
-          {!catalogLoading && catalog.assets.length === 0 && (
+          {!pricesLoading && prices.length === 0 && (
             <Card className="border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
-              No catalog imported yet. Ask an admin to import the{" "}
-              <strong>Aset perabot jalan</strong> file from{" "}
+              No prices imported yet — pick the values below, then type the price or press{" "}
+              <strong>Skip price</strong>. An admin can import the{" "}
+              <strong>Aset perabot jalan</strong> sheet from{" "}
               <strong>Dashboard → Catalog</strong>.
             </Card>
           )}
@@ -521,14 +478,14 @@ export function RecordForm({
           <Card className="space-y-3 p-5">
             <p className="text-sm font-bold text-zinc-900">L1 · Asset</p>
             <div className="grid gap-2">
-              {catalog.assets.map((a) => (
+              {CATALOG_ASSETS.map((a) => (
                 <button
-                  key={a.id}
+                  key={a.key}
                   type="button"
-                  onClick={() => chooseAsset(a.id)}
+                  onClick={() => chooseAsset(a.key)}
                   className={cn(
                     "rounded-xl border-2 px-3 py-2.5 text-left text-sm font-semibold transition-colors",
-                    assetId === a.id
+                    assetId === a.key
                       ? "border-amber-500 bg-amber-50 text-zinc-900"
                       : "border-zinc-200 bg-white text-zinc-700 hover:border-zinc-300",
                   )}
@@ -554,7 +511,7 @@ export function RecordForm({
           {chosenAsset &&
             activeLevels.map((l) => {
               if (l.level > 2 && !selection[l.level - 1]) return null;
-              const options = optionsFor(chosenAsset.id, l.level);
+              const options = optionsFor(chosenAsset.key, l.level);
               return (
                 <Card key={l.level} className="space-y-3 p-5">
                   <p className="text-sm font-bold text-zinc-900">

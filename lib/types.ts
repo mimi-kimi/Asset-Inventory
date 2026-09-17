@@ -25,42 +25,19 @@ export interface TaskRow {
   created_at: string;
 }
 
-/* ---------- aset perabot jalan price catalog ---------- */
+/* ---------- aset perabot jalan price catalog (structure lives in lib/catalog-data.ts) ---------- */
 
-export interface CatalogAsset {
+/** One row of `public.catalog_prices`: a price for an L1..L5 combination. */
+export interface CatalogPrice {
   id: string;
-  name: string;
-  sort_order: number;
-}
-
-export interface CatalogLevel {
-  asset_id: string;
-  level_no: number;
-  label: string;
-}
-
-export interface CatalogOption {
-  asset_id: string;
-  level_no: number;
-  value: string;
-}
-
-export interface CatalogPriceRow {
-  id: string;
-  asset_id: string;
-  l2: string | null;
-  l3: string | null;
-  l4: string | null;
-  l5: string | null;
+  asset_key: string;
+  l2: string;
+  l3: string;
+  l4: string;
+  l5: string;
   price: number | null;
   raw_price?: string | null;
-}
-
-export interface CatalogData {
-  assets: CatalogAsset[];
-  levels: CatalogLevel[];
-  options: CatalogOption[];
-  prices: CatalogPriceRow[];
+  updated_at?: string;
 }
 
 export interface AssetType {
@@ -100,6 +77,7 @@ export interface AssetRow {
     price?: number | null;
     price_manual?: boolean | null;
     asset_category?: string | null;
+    catalog_asset_key?: string | null;
     l2?: string | null;
     l3?: string | null;
     l4?: string | null;
@@ -125,7 +103,7 @@ export interface InspectionRow {
   remarks: string | null;
   photo_webp?: string | null;
   /* v5 catalog selections */
-  catalog_asset_id?: string | null;
+  catalog_asset_key?: string | null;
   asset_category?: string | null;
   l2?: string | null;
   l3?: string | null;

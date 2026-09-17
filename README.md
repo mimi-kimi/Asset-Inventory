@@ -22,7 +22,7 @@ lights, stop lights, road lamps and more.
 - **Task import** (CSV/Excel): `No, ID-Inventory, Position_X(lng), Position_Y(lat), Price, Type, Remarks`
 - **Map dashboard** (desktop): map always visible under the header — colored markers (🔵 not inspected · 🟢 working · 🔴 not working), task selector, total price + asset distribution panel, status panel
 - **Mobile app** with 4 tabs — Map · Task · Record · Profile — and a **QR-scanner/manual** inspection flow: ID-Inventory → photo → **L1 asset → L2–L5 options → L6 price** (auto-filled, manual or skipped) → working? → remarks
-- **Price catalog** (admin, `/dashboard/catalog`): import *Aset perabot jalan* Excel (L1 asset → L2–L5 selectable values → L6 price) and pick it from the phone
+- **Price catalog**: L1→L5 structure generated from the *Aset perabot jalan* Excel (`npm run catalog:gen`); prices live in Supabase and are editable/importable at `/dashboard/catalog` (admin)
 - **Desktop header “Mobile” button** opens the inspector app; mobile users get
   back to the dashboard from *Profile → Open desktop dashboard*
 - Asset catalog with types (signboards, signals, lamps, guardrails, …)
@@ -33,7 +33,9 @@ lights, stop lights, road lamps and more.
 ```
 app/            routes (dashboard/*, inspect/*, login)
 components/     UI primitives, charts, map, forms, wizard
-lib/            supabase clients, auth, queries, types, formatting
+lib/            supabase clients, auth, queries, types, formatting,
+                catalog-data.ts (generated catalog structure)
+scripts/        generate-catalog.mjs (npm run catalog:gen)
 supabase/schema.sql   one-time database setup
 ```
 
@@ -44,7 +46,7 @@ supabase/schema.sql   one-time database setup
    `supabase/schema.sql`, `supabase/migration_v2.sql` (tasks + import columns),
    `supabase/migration_v3.sql` (inspection photo column),
    `supabase/migration_v4.sql` (username login + admin-managed users) and
-   `supabase/migration_v5.sql` (asset price catalog L1–L6).
+   `supabase/migration_v5.sql` (price catalog table + L1–L6 inspection columns).
    A sample import file lives at `public/sample-task.csv`.
 3. **Disable self sign-up** — Supabase → *Authentication → Providers → Email* →
    turn **off** "Allow new users to sign up". Accounts are created by admins only.
@@ -172,31 +174,38 @@ the insert list.*
 
 ## Price catalog (L1 → L6)
 
-`supabase/migration_v5.sql` adds four tables — `catalog_assets` (L1),
-`catalog_levels` (per-asset labels for L2–L5), `catalog_options` (the selectable
-values) and `catalog_prices` (one row per L1–L5 combination with its L6 price) —
-plus the matching columns on `inspections`, and the catalog is readable by every
-signed-in user (writes are admin-only).
+The **structure** of the catalog is part of the app: `lib/catalog-data.ts` is
+generated from the *Aset perabot jalan* spreadsheet and holds the 8 assets, their
+L2–L5 level labels (`KETERANGAN / ARM / WATT / TIANG` …) and every selectable
+value — so the mobile form works out of the box, with nothing to upload. The
+generator understands the sheet's block layout (column B = `ASET` header rows,
+columns C–F = that block's level labels, column G = price, blank level cells are
+forward-filled) and prints what it found:
 
-1. Open **Dashboard → Catalog** as an admin and press **Choose Excel file**.
-2. Pick your *Aset perabot jalan* sheet. Every block starts with a header row
-   whose column **B = `ASET`**, columns **C–F = that block's level labels**
-   (e.g. `KETERANGAN / ARM / WATT / TIANG`) and column **G = price**. Blank
-   level cells are forward-filled, so a row only has to repeat the value that
-   changed. You get a preview of every asset with its labels and priced rows;
-   press **Import now** to replace the catalog.
-3. On the phone the **Asset** step now shows: L1 asset buttons → cascading
-   L2–L5 chips (only the levels that exist for that asset, empty levels are
-   skipped) → the L6 price, filled automatically from the sheet.
-4. If a combination has **no price** in the sheet (empty cell, or a value with
-   no digits) the inspector types it or presses **Skip price**. Text prices such
-   as `RM45,000.00/TIANG` are normalised to `45000` on import. Anything not in
-   the list is recorded through **Lain-lain** with a manual description + price.
+```bash
+npm run catalog:gen -- "Aset perambot jalan.xlsx"   # rewrites lib/catalog-data.ts
+npm run build                                        # commit the regenerated file
+```
 
-Re-importing replaces the catalog; existing inspections keep the snapshot of the
-values they already stored. Prices appear in the map drawer, the inspections
-list, the mobile records list and the task CSV export (`Price source` =
-`catalog` / `manual` / `none`).
+**Prices** live in Supabase — `public.catalog_prices`, one row per L1–L5
+combination keyed by `asset_key` + `l2..l5` — so they can be updated any time
+without touching the app code:
+
+1. **Dashboard → Catalog** lists every combination grouped per asset with an
+   editable price box (`Save` per row, an empty box means *no price*), a
+   *show only rows without a price* filter and coverage such as
+   `67/68 priced`. Text prices like `RM45,000.00/TIANG` are normalised to a
+   number on import.
+2. **Import Excel prices** replaces all stored prices from the same spreadsheet.
+   The preview warns about assets/options the app does not know yet (run
+   `catalog:gen` + redeploy for those) and how many rows come without a price.
+3. On the phone the **Asset** step shows L1 buttons → cascading L2–L5 chips →
+   the L6 price filled automatically. Combinations without a price let the
+   inspector type it or press **Skip price**; anything not in the list is
+   recorded through **Lain-lain** with a manual description + price.
+
+Stored prices show up in the map drawer, the inspections list, the mobile records
+list and the task CSV export (`Price source` = `catalog` / `manual` / `none`).
 
 ## Deploy to Vercel
 
@@ -224,7 +233,8 @@ list, the mobile records list and the task CSV export (`Price source` =
 - Old v1 features (asset CRUD, photo uploads) remain under the dashboard
   manage menu and the legacy `/inspect` routes.
 - Role management is via SQL (no admin UI yet).
-- The catalog is imported as a whole file (no per-row editing UI yet) and needs
-  a network round trip when the inspection form opens.
+- The L1–L5 catalog structure is generated code (`lib/catalog-data.ts` →
+  `npm run catalog:gen`, then deploy); only prices are editable in the browser,
+  and the mobile inspection form loads them with one small query on open.
 - Login left panel background image: place any photo at `public/login-bg.jpg`.
 

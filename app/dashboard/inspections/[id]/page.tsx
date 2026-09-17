@@ -12,6 +12,7 @@ import {
 } from "@/lib/format";
 import { Card, CardHeader } from "@/components/ui";
 import { PhotoGrid } from "@/components/photo-grid";
+import { inspectionPhotoUrls } from "@/lib/photos";
 
 export const dynamic = "force-dynamic";
 export const metadata: Metadata = { title: "Inspection detail" };
@@ -40,7 +41,8 @@ export default async function InspectionDetailPage({
 
   const meta = conditionMeta(inspection.condition);
   const asset = inspection.assets;
-  const photos = inspection.inspection_photos ?? [];
+  /* Storage URL (v6+), legacy base64 and the old inspection_photos rows */
+  const photoUrls = inspectionPhotoUrls(inspection);
 
   return (
     <div className="space-y-5">
@@ -99,10 +101,10 @@ export default async function InspectionDetailPage({
           <Card>
             <CardHeader
               title="Photos"
-              subtitle={`${photos.length} photo${photos.length === 1 ? "" : "s"} attached`}
+              subtitle={`${photoUrls.length} photo${photoUrls.length === 1 ? "" : "s"} attached`}
             />
             <div className="p-4">
-              <PhotoGrid urls={photos.map((p) => p.photo_url)} />
+              <PhotoGrid urls={photoUrls} />
             </div>
           </Card>
         </div>

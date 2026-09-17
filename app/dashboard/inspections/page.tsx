@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { ClipboardList } from "lucide-react";
+import { ChevronDown, ClipboardList } from "lucide-react";
 import { requireViewer } from "@/lib/auth";
 import { queryInspections, fetchInspectorNames } from "@/lib/queries";
 import {
@@ -11,6 +11,8 @@ import {
   fmtDateTime,
   normalizeCondition,
 } from "@/lib/format";
+import { groupInspectionsByTask } from "@/lib/inspection-groups";
+import { inspectionPhotoCount, photoLabel } from "@/lib/photos";
 import type { InspectionRow } from "@/lib/types";
 import { Badge, EmptyState } from "@/components/ui";
 
@@ -53,6 +55,9 @@ export default async function InspectionsPage({
   const needsAttention = rows.filter(
     (i) => !i.functional || normalizeCondition(i.condition) === "BAD",
   ).length;
+  /* one collapsible block per imported task */
+  const groups = groupInspectionsByTask(rows);
+  const withPhoto = rows.filter((i) => inspectionPhotoCount(i) > 0).length;
 
   return (
     <div className="space-y-5">
@@ -60,7 +65,9 @@ export default async function InspectionsPage({
         <div>
           <h1 className="text-2xl font-bold text-zinc-900">Inspections</h1>
           <p className="mt-0.5 text-sm text-zinc-500">
-            {rows.length} field reports
+            {rows.length} field report{rows.length === 1 ? "" : "s"} · {groups.length}{" "}
+            task{groups.length === 1 ? "" : "s"} · {withPhoto} with photo
+            {withPhoto === 1 ? "" : "s"}
             {needsAttention > 0 && (
               <span className="ml-2 rounded-full bg-orange-100 px-2 py-0.5 text-xs font-semibold text-orange-700">
                 {needsAttention} need attention
@@ -144,23 +151,51 @@ export default async function InspectionsPage({
           hint="Field reports recorded on mobile will appear here."
         />
       ) : (
-        <div className="overflow-x-auto rounded-xl border border-zinc-200 bg-white shadow-sm">
-          <table className="w-full min-w-[760px] text-left text-sm">
-            <thead className="border-b border-zinc-200 bg-zinc-50 text-xs font-semibold uppercase tracking-wide text-zinc-500">
-              <tr>
-                <th className="px-5 py-3">Asset</th>
-                <th className="px-5 py-3">Asset</th>
-                <th className="px-5 py-3">Price</th>
-                <th className="px-5 py-3">Condition</th>
-                <th className="px-5 py-3">Works?</th>
-                <th className="px-5 py-3">Inspected by</th>
-                <th className="px-5 py-3">When</th>
-                <th className="px-5 py-3">Photos</th>
-                <th className="px-5 py-3 text-right">Detail</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-zinc-100">
-              {rows.map((i) => (
+        <div className="space-y-3">
+          {groups.map((group, index) => (
+            <details
+              key={group.taskId ?? "__no_task__"}
+              open={index === 0}
+              className="group overflow-hidden rounded-xl border border-zinc-200 bg-white shadow-sm"
+            >
+              <summary className="flex cursor-pointer list-none items-center gap-3 px-4 py-3 hover:bg-zinc-50">
+                <ChevronDown className="h-4 w-4 shrink-0 text-zinc-400 transition-transform group-open:rotate-180" />
+                <span className="min-w-0 flex-1">
+                  <span className="block truncate font-bold text-zinc-900">
+                    {group.taskName}
+                  </span>
+                  <span className="block text-xs text-zinc-500">
+                    {group.rows.length} report{group.rows.length === 1 ? "" : "s"} ·{" "}
+                    {group.markers} marker{group.markers === 1 ? "" : "s"} ·{" "}
+                    {group.withPhoto} with photo{group.withPhoto === 1 ? "" : "s"}
+                    {group.needAttention > 0 && (
+                      <span className="ml-2 rounded-full bg-orange-100 px-2 py-0.5 text-[10px] font-semibold text-orange-700">
+                        {group.needAttention} need attention
+                      </span>
+                    )}
+                  </span>
+                </span>
+                <span className="hidden shrink-0 text-xs text-zinc-400 sm:block">
+                  last {fmtDateTime(group.latestAt)}
+                </span>
+              </summary>
+              <div className="overflow-x-auto border-t border-zinc-100">
+                <table className="w-full min-w-[860px] text-left text-sm">
+                  <thead className="border-b border-zinc-200 bg-zinc-50 text-xs font-semibold uppercase tracking-wide text-zinc-500">
+                    <tr>
+                      <th className="px-5 py-2.5">Marker</th>
+                      <th className="px-5 py-2.5">Category / values</th>
+                      <th className="px-5 py-2.5">Price</th>
+                      <th className="px-5 py-2.5">Condition</th>
+                      <th className="px-5 py-2.5">Works?</th>
+                      <th className="px-5 py-2.5">Inspected by</th>
+                      <th className="px-5 py-2.5">When</th>
+                      <th className="px-5 py-2.5">Photos</th>
+                      <th className="px-5 py-2.5 text-right">Detail</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-zinc-100">
+                    {group.rows.map((i) => (
                 <tr key={i.id} className="transition-colors hover:bg-zinc-50">
                   <td className="px-5 py-3">
                     <p className="font-semibold text-zinc-900">
@@ -213,9 +248,7 @@ export default async function InspectionsPage({
                     {inspectorNames.get(i.inspector_id) ?? "Unknown"}
                   </td>
                   <td className="px-5 py-3 text-zinc-500">{fmtDateTime(i.inspected_at)}</td>
-                  <td className="px-5 py-3 text-zinc-500">
-                    {i.inspection_photos?.length ?? 0} 📷
-                  </td>
+                  <td className="px-5 py-3 text-zinc-500">{photoLabel(i)}</td>
                   <td className="hidden px-5 py-3 text-right xl:table-cell">
                     <Link
                       href={`/dashboard/inspections/${i.id}`}
@@ -225,9 +258,12 @@ export default async function InspectionsPage({
                     </Link>
                   </td>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </details>
+          ))}
         </div>
       )}
     </div>

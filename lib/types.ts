@@ -156,6 +156,9 @@ export interface InspectionRow {
     location: string | null;
     lat: number | null;
     lng: number | null;
+    /** which import batch the marker belongs to (the Inspections list groups by it) */
+    task_id?: string | null;
+    tasks?: Pick<TaskRow, "id" | "name"> | null;
   } | null;
   inspection_photos?: InspectionPhoto[];
 }

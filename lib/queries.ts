@@ -19,7 +19,7 @@ import type {
  * payload huge. Only the single-inspection query loads them.
  */
 const INSPECTION_LIST_COLUMNS =
-  "id, asset_id, inspector_id, inspected_at, condition, functional, remarks, created_at, photo_url, catalog_asset_id, asset_category, catalog_path, l2, l3, l4, l5, l6, price, price_manual, other_description, assets(id, code, seq_no, inventory_id, location, type_text, lat, lng), inspection_photos(id, inspection_id, photo_url)";
+  "id, asset_id, inspector_id, inspected_at, condition, functional, remarks, created_at, photo_url, catalog_asset_id, asset_category, catalog_path, l2, l3, l4, l5, l6, price, price_manual, other_description, assets(id, code, seq_no, inventory_id, location, type_text, lat, lng, task_id, tasks(id, name)), inspection_photos(id, inspection_id, photo_url)";
 
 export async function queryInspections(
   limit = 100,

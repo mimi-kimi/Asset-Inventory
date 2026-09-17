@@ -22,7 +22,10 @@ lights, stop lights, road lamps and more.
   the shield button)
 - **Tasks page** (`/dashboard/tasks`): import CSV/Excel batches + list all imported tasks with progress
 - **Task import** (CSV/Excel): `No, ID-Inventory, Position_X(lng), Position_Y(lat), Price, Type, Remarks`
-- **CSV export** (mobile *Task* tab and the dashboard *Tasks* page): the inspected markers **or the full report history** — columns: `No · ID-Inventory · Photo URL · Latitude · Longitude · Category · L2 · L3 · L4 · L5 · Catalog path · Lain-lain · Price · Condition · Working · Remarks · Inspected at`
+- **Inspections page** grouped by task: one **collapsible block per imported task**
+  (reports, markers, how many have photos, how many need attention, last activity),
+  with condition/functioning filters on top
+- **CSV export** (mobile *Task* tab and the dashboard *Tasks* page): the inspected markers **or the full report history** — columns: `No · ID-Inventory · Photo URL · Latitude · Longitude · Category · L2 · L3 · L4 · L5 · Catalog path · Lain-lain · Price · Condition · Working · Remarks · Inspected at` — every account can export, and the file covers the whole team's reports for that task
 - **Map dashboard** (desktop): map always visible under the header — colored markers (🔵 not inspected · 🟢 working · 🔴 not working), task selector, total price + asset distribution panel, status panel
 - **Mobile app** with 4 tabs — Map · Task · Record · Profile — and a **QR-scanner/manual** inspection flow: ID-Inventory → photo → **asset → its values per level → price** (from the catalog, optional override) → **working? and condition (Good / Fair / Bad)** → remarks
 - **Asset catalog** (`/dashboard/catalog`, admin): manage each asset, give it the named levels it needs (`KETERANGAN · ARM · WATT · TIANG`, or just `AMP` for a feeder pillar), edit the values and the price of each combination; importing the *Aset perabot jalan* sheet is a helper that only adds what is missing
@@ -302,6 +305,11 @@ https://<project>.supabase.co/storage/v1/object/public/tree-photos/sitechecker1/
   old object.
 - Records saved before this change keep their base64 `photo_webp`; the UI prefers
   `photo_url` when both exist, so nothing has to be migrated to keep working.
+- The **photo count** in the inspections list/detail comes from the report itself
+  (`photo_url`, or the legacy `photo_webp`), not from the old `inspection_photos`
+  table — that table has been unused since v6 and is kept only for old rows, which
+  is why a report can have a photo while the table is empty.
+  `lib/photos.ts` (`inspectionPhotoUrls`) is the single place that decides this.
 
 ## Deploy to Vercel
 

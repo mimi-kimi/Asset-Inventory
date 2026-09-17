@@ -121,12 +121,17 @@ export function TaskTabScreen({
         </ul>
       )}
 
-      {inspected.length > 0 && (
+      {activeTaskId && (
         <div className="space-y-2">
+          <p className="px-1 text-xs text-zinc-500">
+            The CSV covers this task’s reports from every account, including photos
+            and prices.
+          </p>
           <button
             type="button"
             onClick={exportCsv}
-            className="flex w-full items-center justify-center gap-2 rounded-xl bg-zinc-900 px-4 py-3 text-sm font-bold text-white active:scale-[0.99]"
+            disabled={inspected.length === 0}
+            className="flex w-full items-center justify-center gap-2 rounded-xl bg-zinc-900 px-4 py-3 text-sm font-bold text-white active:scale-[0.99] disabled:cursor-not-allowed disabled:bg-zinc-300 disabled:text-zinc-500"
           >
             <Download className="h-4 w-4" />
             Export inspected data ({inspected.length}) as CSV
@@ -134,11 +139,18 @@ export function TaskTabScreen({
           <button
             type="button"
             onClick={exportHistory}
-            className="flex w-full items-center justify-center gap-2 rounded-xl border border-zinc-300 bg-white px-4 py-3 text-sm font-bold text-zinc-700 active:scale-[0.99]"
+            disabled={historyCount === 0}
+            className="flex w-full items-center justify-center gap-2 rounded-xl border border-zinc-300 bg-white px-4 py-3 text-sm font-bold text-zinc-700 active:scale-[0.99] disabled:cursor-not-allowed disabled:border-zinc-200 disabled:text-zinc-400"
           >
             <History className="h-4 w-4" />
             Export full history ({historyCount} report{historyCount === 1 ? "" : "s"})
           </button>
+          {inspected.length === 0 && (
+            <p className="rounded-xl bg-zinc-100 px-3 py-2 text-xs text-zinc-500">
+              Nothing to export yet — the export lists the markers of this task that
+              already have a report. Inspect one from the Map tab and it appears here.
+            </p>
+          )}
         </div>
       )}
 

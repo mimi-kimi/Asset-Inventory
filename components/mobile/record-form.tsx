@@ -12,7 +12,6 @@ import type { UploadedPhoto } from "@/lib/storage";
 import { cn } from "@/lib/format";
 import type {
   AssetRow,
-  AssetType,
   CatalogAssetRow,
   CatalogData,
   CatalogLevelRow,
@@ -44,12 +43,10 @@ function money(n: number | null | undefined): string {
 export function RecordForm({
   asset,
   inspection,
-  assetTypes,
   username,
 }: {
   asset: AssetRow | null;
   inspection: InspectionRow | null;
-  assetTypes: AssetType[];
   username?: string | null;
 }) {
   const router = useRouter();
@@ -326,17 +323,11 @@ export function RecordForm({
       if (!user) throw new Error("You must be signed in.");
 
       const category = isOther ? "LAIN-LAIN" : activeAsset!.name;
-      const match = assetTypes.find(
-        (t) => t.name.toLowerCase() === category.toLowerCase(),
-      );
-      const uncat = assetTypes.find((t) => t.code === "UNCAT");
-      const nextTypeId = match?.id ?? uncat?.id ?? asset.type_id;
 
       const { error: assetError } = await supabase
         .from("assets")
         .update({
           inventory_id: inventoryId.trim() || null,
-          type_id: nextTypeId,
           type_text: category,
           status: "ACTIVE",
         })

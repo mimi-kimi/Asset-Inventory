@@ -75,19 +75,10 @@ export interface CatalogPathStep {
   option_id?: string | null;
 }
 
-export interface AssetType {
-  id: string;
-  code: string;
-  name: string;
-  icon: string | null;
-  created_at?: string;
-}
-
-/** An asset row joined with its type (select *, asset_types(*)). */
+/** An asset row (the category is `type_text`, set from the catalog). */
 export interface AssetRow {
   id: string;
   code: string;
-  type_id: string;
   location: string | null;
   lat: number | null;
   lng: number | null;
@@ -96,7 +87,6 @@ export interface AssetRow {
   installed_date: string | null;
   notes: string | null;
   created_at: string;
-  asset_types?: Pick<AssetType, "id" | "code" | "name" | "icon"> | null;
   /* v2 task/import fields */
   task_id?: string | null;
   seq_no?: string | null;
@@ -163,10 +153,10 @@ export interface InspectionRow {
     code: string;
     seq_no?: string | null;
     inventory_id?: string | null;
+    type_text?: string | null;
     location: string | null;
     lat: number | null;
     lng: number | null;
-    asset_types?: Pick<AssetType, "id" | "code" | "name" | "icon"> | null;
   } | null;
   inspection_photos?: InspectionPhoto[];
 }

@@ -9,7 +9,7 @@ export const metadata: Metadata = { title: "Sign in" };
 export default async function LoginPage() {
   const viewer = await getViewer();
   if (viewer) {
-    redirect(viewer.profile.role === "ADMIN" ? "/dashboard" : "/inspect");
+    redirect(viewer.profile.role === "ADMIN" ? "/dashboard" : "/mobile");
   }
 
   return (

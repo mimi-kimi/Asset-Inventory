@@ -13,10 +13,6 @@ interface Result {
   errors: string[];
 }
 
-function normalize(v: string): string {
-  return v.toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
-}
-
 export function TaskImportDialog({
   open,
   onClose,
@@ -53,24 +49,12 @@ export function TaskImportDialog({
     }
   }
 
-  async function typeLookup(): Promise<{ byName: Map<string, string>; fallbackId: string | null }> {
-    const { data } = await supabase.from("asset_types").select("id, code, name");
-    const byName = new Map<string, string>();
-    let fallbackId: string | null = null;
-    for (const t of (data ?? []) as { id: string; code: string; name: string }[]) {
-      byName.set(normalize(t.name), t.id);
-      if (t.code === "UNCAT") fallbackId = t.id;
-    }
-    return { byName, fallbackId };
-  }
-
   async function runImport() {
     if (!rows || rows.length === 0) return;
     setBusy(true);
     setResult(null);
     try {
       const { data: userData } = await supabase.auth.getUser();
-      const types = await typeLookup();
       const finalName = name.trim() || `Task ${new Date().toISOString().slice(0, 10)}`;
 
       const { data: task, error: taskError } = await supabase
@@ -91,9 +75,6 @@ export function TaskImportDialog({
         const r = rows[i];
         const latN = r.lat;
         const lngN = r.lng;
-        const typeId = r.type_text
-          ? types.byName.get(normalize(r.type_text)) ?? types.fallbackId ?? null
-          : null;
         const payload = {
           seq_no: r.seq_no || null,
           inventory_id: r.inventory_id || null,
@@ -102,7 +83,6 @@ export function TaskImportDialog({
           price: r.price,
           type_text: r.type_text || null,
           notes: r.remarks || null,
-          type_id: typeId,
           task_id: taskId,
         };
 
@@ -122,7 +102,6 @@ export function TaskImportDialog({
                 price: r.price,
                 type_text: r.type_text || null,
                 notes: r.remarks || null,
-                type_id: typeId,
               })
               .eq("id", existing[0].id);
             if (upErr) {

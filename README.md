@@ -25,17 +25,17 @@ lights, stop lights, road lamps and more.
 - **Asset catalog** (`/dashboard/catalog`, admin): manage each asset, give it the named levels it needs (`KETERANGAN · ARM · WATT · TIANG`, or just `AMP` for a feeder pillar), edit the values and the price of each combination; importing the *Aset perabot jalan* sheet is a helper that only adds what is missing
 - **Desktop header “Mobile” button** opens the inspector app; mobile users get
   back to the dashboard from *Profile → Open desktop dashboard*
-- Asset catalog with types (signboards, signals, lamps, guardrails, …)
 - Row Level Security on every table; inspection photos are downscaled WebP files in a public Supabase Storage bucket, and the row keeps the public URL
 
 ## Project layout
 
 ```
-app/            routes (dashboard/*, inspect/*, login)
-components/     UI primitives, charts, map, forms, wizard
+app/            routes (dashboard/*, mobile/*, login)
+components/     UI primitives, charts, map, forms, catalog editor
 lib/            supabase clients, auth, queries, types, formatting,
                 catalog-tree.ts (asset → levels → options tree + price walk),
-                catalog-merge.ts (insert-only Excel merge planner)
+                catalog-merge.ts (insert-only Excel merge planner),
+                storage.ts (inspection photo uploads)
 supabase/schema.sql   one-time database setup
 ```
 
@@ -46,8 +46,9 @@ supabase/schema.sql   one-time database setup
    `supabase/schema.sql`, `supabase/migration_v2.sql` (tasks + import columns),
    `supabase/migration_v3.sql` (inspection photo column),
    `supabase/migration_v4.sql` (username login + admin-managed users) and
-   `supabase/migration_v5.sql` (asset catalog + inspection snapshot columns) and
-   `supabase/migration_v6.sql` (photo bucket + photo_url/photo_path).
+   `supabase/migration_v5.sql` (asset catalog + inspection snapshot columns),
+   `supabase/migration_v6.sql` (photo bucket + photo_url/photo_path) and
+   `supabase/migration_v7.sql` (retire the old asset types).
    A sample import file lives at `public/sample-task.csv`.
 3. **Disable self sign-up** — Supabase → *Authentication → Providers → Email* →
    turn **off** "Allow new users to sign up". Accounts are created by admins only.
@@ -79,10 +80,10 @@ supabase/schema.sql   one-time database setup
 
 ## Roles
 
-- **ADMIN** lands on `/dashboard` — full asset CRUD, asset-type manager,
-  all inspections, CSV export.
-- **INSPECTOR** lands on `/inspect` — record inspections from a phone;
-  can also open the dashboard read-only.
+- **ADMIN** lands on `/dashboard` — map, tasks & import, inspections, the asset
+  catalog, user management.
+- **INSPECTOR** lands on `/mobile` — record inspections from a phone; can also
+  open the dashboard read-only.
 
 ## User management
 
@@ -269,8 +270,10 @@ https://<project>.supabase.co/storage/v1/object/public/tree-photos/sitechecker1/
 - No offline mode (field app needs a connection).
 - Landings: desktops go to `/dashboard`; phones go to `/mobile` (toggle buttons both ways).
 - Import upsert is sequential (fine for typical task sizes).
-- Old v1 features (asset CRUD, photo uploads) remain under the dashboard
-  manage menu and the legacy `/inspect` routes.
+- The old asset CRUD, the asset-type manager and the legacy `/inspect` routes are
+  gone — the catalog page manages the categories/values and the mobile app
+  records the inspections (run `supabase/migration_v7.sql` to retire the old
+  `asset_types` table).
 - Role management is via SQL (no admin UI yet).
 - The catalog lives in Supabase: build it in the app or import the sheet once —
   the phone form needs a connection to read it (prices fall back to "skipped"

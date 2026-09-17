@@ -4,14 +4,12 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import {
   ClipboardList,
-  Cone,
   LayoutDashboard,
   ListChecks,
   LogOut,
   MonitorSmartphone,
   Package,
   Smartphone,
-  Tags,
   UserCog,
   Users,
 } from "lucide-react";
@@ -29,9 +27,7 @@ const MANAGE_LINKS: Array<{
 }> = [
   { href: "/dashboard", label: "Map dashboard", icon: LayoutDashboard },
   { href: "/dashboard/tasks", label: "Tasks", icon: ListChecks },
-  { href: "/dashboard/assets", label: "Assets", icon: Cone },
   { href: "/dashboard/inspections", label: "Inspections", icon: ClipboardList },
-  { href: "/dashboard/types", label: "Asset types", icon: Tags, adminOnly: true },
   { href: "/dashboard/catalog", label: "Catalog", icon: Package, adminOnly: true },
   { href: "/dashboard/users", label: "Users", icon: Users, adminOnly: true },
   { href: "/account", label: "My account", icon: UserCog },

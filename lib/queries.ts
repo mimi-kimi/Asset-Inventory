@@ -3,7 +3,6 @@ import "server-only";
 import { createClient } from "@/lib/supabase/server";
 import type {
   AssetRow,
-  AssetType,
   CatalogAssetRow,
   CatalogData,
   CatalogLevelRow,
@@ -20,27 +19,7 @@ import type {
  * payload huge. Only the single-inspection query loads them.
  */
 const INSPECTION_LIST_COLUMNS =
-  "id, asset_id, inspector_id, inspected_at, condition, functional, remarks, created_at, photo_url, catalog_asset_id, asset_category, catalog_path, l2, l3, l4, l5, l6, price, price_manual, other_description, assets(id, code, seq_no, inventory_id, location, lat, lng, asset_types(id, code, name, icon)), inspection_photos(id, inspection_id, photo_url)";
-
-export async function queryAssets(): Promise<AssetRow[]> {
-  const supabase = await createClient();
-  const { data, error } = await supabase
-    .from("assets")
-    .select("*, asset_types(id, code, name, icon)")
-    .order("code");
-  if (error) throw error;
-  return (data ?? []) as AssetRow[];
-}
-
-export async function queryAssetTypes(): Promise<AssetType[]> {
-  const supabase = await createClient();
-  const { data, error } = await supabase
-    .from("asset_types")
-    .select("id, code, name, icon, created_at")
-    .order("name");
-  if (error) throw error;
-  return (data ?? []) as AssetType[];
-}
+  "id, asset_id, inspector_id, inspected_at, condition, functional, remarks, created_at, photo_url, catalog_asset_id, asset_category, catalog_path, l2, l3, l4, l5, l6, price, price_manual, other_description, assets(id, code, seq_no, inventory_id, location, type_text, lat, lng), inspection_photos(id, inspection_id, photo_url)";
 
 export async function queryInspections(
   limit = 100,
@@ -62,7 +41,7 @@ export async function queryInspectionById(
   const { data, error } = await supabase
     .from("inspections")
     .select(
-      "*, assets(id, code, location, lat, lng, asset_types(id, code, name, icon)), inspection_photos(id, inspection_id, photo_url)",
+      "*, assets(id, code, location, type_text, lat, lng), inspection_photos(id, inspection_id, photo_url)",
     )
     .eq("id", id)
     .maybeSingle();
@@ -83,17 +62,6 @@ export async function queryMyInspections(
     .limit(limit);
   if (error) throw error;
   return (data ?? []) as unknown as InspectionRow[];
-}
-
-export async function queryAssetById(id: string): Promise<AssetRow | null> {
-  const supabase = await createClient();
-  const { data, error } = await supabase
-    .from("assets")
-    .select("*, asset_types(id, code, name, icon)")
-    .eq("id", id)
-    .maybeSingle();
-  if (error) throw error;
-  return (data as AssetRow | null) ?? null;
 }
 
 export async function countInspectors(): Promise<number> {
@@ -175,7 +143,7 @@ export async function queryAssetWithInspectionsById(
   const supabase = await createClient();
   const { data, error } = await supabase
     .from("assets")
-    .select("*, asset_types(id, code, name, icon), inspections(id, functional, inspected_at)")
+    .select("*, inspections(id, functional, inspected_at, photo_webp)")
     .eq("id", id)
     .maybeSingle();
   if (error) throw error;

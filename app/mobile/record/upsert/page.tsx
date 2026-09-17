@@ -2,11 +2,7 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { requireViewer } from "@/lib/auth";
 import { describeError } from "@/lib/format";
-import {
-  queryAssetTypes,
-  queryAssetWithInspectionsById,
-  queryInspectionById,
-} from "@/lib/queries";
+import { queryAssetWithInspectionsById, queryInspectionById } from "@/lib/queries";
 import { RecordForm } from "@/components/mobile/record-form";
 
 export const dynamic = "force-dynamic";
@@ -24,12 +20,9 @@ export default async function UpsertPage({
 
   let asset: Awaited<ReturnType<typeof queryAssetWithInspectionsById>> = null;
   let inspection: Awaited<ReturnType<typeof queryInspectionById>> = null;
-  let assetTypes: Awaited<ReturnType<typeof queryAssetTypes>> = [];
   let dbError: string | null = null;
 
   try {
-    assetTypes = await queryAssetTypes();
-
     if (inspectionId) {
       inspection = await queryInspectionById(inspectionId);
       if (inspection?.assets?.id) {
@@ -56,7 +49,6 @@ export default async function UpsertPage({
     <RecordForm
       asset={asset}
       inspection={inspection}
-      assetTypes={assetTypes}
       username={viewer.profile.username}
     />
   );

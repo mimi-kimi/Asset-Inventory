@@ -50,7 +50,10 @@ export default async function InspectionDetailPage({
           {asset?.code ?? "Inspection"} report
         </h1>
         <p className="text-sm text-zinc-500">
-          {asset?.asset_types?.icon ?? ""} {asset?.asset_types?.name ?? "Asset"}
+          {inspection.asset_category ??
+            asset?.type_text ??
+            asset?.inventory_id ??
+            "Asset"}
         </p>
       </div>
 
@@ -113,7 +116,7 @@ export default async function InspectionDetailPage({
                 <dt className="text-xs font-semibold uppercase tracking-wide text-zinc-500">
                   Type
                 </dt>
-                <dd>{asset?.asset_types?.name ?? "—"}</dd>
+                <dd>{asset?.type_text ?? "—"}</dd>
               </div>
               <div>
                 <dt className="text-xs font-semibold uppercase tracking-wide text-zinc-500">

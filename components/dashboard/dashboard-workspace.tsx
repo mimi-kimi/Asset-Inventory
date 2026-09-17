@@ -94,10 +94,7 @@ export function DashboardWorkspace({
         .eq("id", id)
         .maybeSingle();
       if (data) {
-        setSelected({
-          ...(data as AssetRow),
-          asset_types: local?.asset_types ?? null,
-        });
+        setSelected(data as AssetRow);
       }
     } catch {
       // keep the lightweight local copy on failure
@@ -143,7 +140,7 @@ export function DashboardWorkspace({
       counts[s] += 1;
       const p = a.price ?? 0;
       price += p;
-      const key = a.type_text?.trim() || a.asset_types?.name?.trim() || "Uncategorised";
+      const key = a.type_text?.trim() || "Uncategorised";
       const entry = dist.get(key) ?? { count: 0, price: 0 };
       entry.count += 1;
       entry.price += p;
@@ -438,9 +435,9 @@ export function DashboardWorkspace({
                 </div>
               )}
               <div className="flex justify-between gap-3">
-                <dt className="text-xs font-semibold text-zinc-400">Type</dt>
+                <dt className="text-xs font-semibold text-zinc-400">Category</dt>
                 <dd className="truncate text-right text-zinc-700">
-                  {selected.type_text || selected.asset_types?.name || "Not set"}
+                  {selected.type_text || "Not set"}
                 </dd>
               </div>
               <div className="flex justify-between gap-3">

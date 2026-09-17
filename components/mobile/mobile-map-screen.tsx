@@ -161,10 +161,10 @@ export function MobileMapScreen({
                 </div>
                 <div>
                   <dt className="text-[10px] font-semibold uppercase tracking-wide text-zinc-400">
-                    Type
+                    Category
                   </dt>
                   <dd className="truncate text-zinc-700">
-                    {selected.type_text || selected.asset_types?.name || "Not set"}
+                    {selected.type_text || "Not set"}
                   </dd>
                 </div>
                 <div>

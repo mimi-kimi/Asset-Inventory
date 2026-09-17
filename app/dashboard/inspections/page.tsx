@@ -161,7 +161,7 @@ export default async function InspectionsPage({
                     </p>
                     <p className="text-xs text-zinc-500">
                       {i.assets?.seq_no ? `No. ${i.assets.seq_no} · ` : ""}
-                      {i.assets?.asset_types?.name ?? ""}
+                      {i.asset_category ?? i.assets?.type_text ?? ""}
                     </p>
                   </td>
                   <td className="px-5 py-3">

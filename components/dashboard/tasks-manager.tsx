@@ -57,7 +57,7 @@ export function TasksManager({
       return [
         a.seq_no ?? "",
         a.inventory_id ?? "",
-        a.type_text || a.asset_types?.name || "",
+        a.type_text || "",
         a.price ?? "",
         latest ? (latest.functional ? "YES" : "NO") : "",
         latest ? new Date(latest.inspected_at).toLocaleString() : "",

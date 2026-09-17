@@ -73,7 +73,7 @@ export function TaskTabScreen({
       return [
         a.seq_no,
         a.inventory_id,
-        latest?.asset_category ?? a.type_text ?? a.asset_types?.name ?? "",
+        latest?.asset_category ?? a.type_text ?? "",
         latest?.l2,
         latest?.l3,
         latest?.l4,

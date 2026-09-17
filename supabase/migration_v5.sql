@@ -64,22 +64,30 @@ alter table public.catalog_levels enable row level security;
 alter table public.catalog_options enable row level security;
 alter table public.catalog_prices enable row level security;
 
+drop policy if exists "read catalog assets" on public.catalog_assets;
 create policy "read catalog assets" on public.catalog_assets
   for select to authenticated using (true);
+drop policy if exists "admin manages catalog assets" on public.catalog_assets;
 create policy "admin manages catalog assets" on public.catalog_assets
   for all to authenticated using (public.is_admin()) with check (public.is_admin());
 
+drop policy if exists "read catalog levels" on public.catalog_levels;
 create policy "read catalog levels" on public.catalog_levels
   for select to authenticated using (true);
+drop policy if exists "admin manages catalog levels" on public.catalog_levels;
 create policy "admin manages catalog levels" on public.catalog_levels
   for all to authenticated using (public.is_admin()) with check (public.is_admin());
 
+drop policy if exists "read catalog options" on public.catalog_options;
 create policy "read catalog options" on public.catalog_options
   for select to authenticated using (true);
+drop policy if exists "admin manages catalog options" on public.catalog_options;
 create policy "admin manages catalog options" on public.catalog_options
   for all to authenticated using (public.is_admin()) with check (public.is_admin());
 
+drop policy if exists "read catalog prices" on public.catalog_prices;
 create policy "read catalog prices" on public.catalog_prices
   for select to authenticated using (true);
+drop policy if exists "admin manages catalog prices" on public.catalog_prices;
 create policy "admin manages catalog prices" on public.catalog_prices
   for all to authenticated using (public.is_admin()) with check (public.is_admin());

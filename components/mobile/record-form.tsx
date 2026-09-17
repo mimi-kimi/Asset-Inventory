@@ -59,7 +59,7 @@ export function RecordForm({
   const [working, setWorking] = useState(inspection?.functional ?? true);
   const [remarks, setRemarks] = useState(inspection?.remarks ?? "");
 
-  /* ---------- catalog: L1 assets → L2..L6 options (+ inherited price) ---------- */
+  /* ---------- catalog: assets → levels → values (+ the price of a combination) ---------- */
   const [catalogAssets, setCatalogAssets] = useState<CatalogAssetRow[]>([]);
   const [catalogLoading, setCatalogLoading] = useState(true);
   const [assetId, setAssetId] = useState<string>(
@@ -83,7 +83,7 @@ export function RecordForm({
   const [error, setError] = useState("");
   const [done, setDone] = useState(false);
 
-  /* ---------- load the catalog: L1 list, then the picked asset's branch ---------- */
+  /* ---------- load the catalog: the asset list, then the picked asset's branch ---------- */
   useEffect(() => {
     let alive = true;
     (async () => {
@@ -189,7 +189,7 @@ export function RecordForm({
   const priceLabel = activeAsset ? priceHeading(activeAsset) : "HARGA";
   const selectedSteps = activeAsset && !isOther ? pathSteps(activeAsset, chain) : [];
 
-  /** Levels to show: L2 first, then every level the picked chain reaches. */
+  /** Levels to show: the first one, then every level the picked chain reaches. */
   const levelBlocks: {
     level: number;
     label: string | null;
@@ -554,7 +554,7 @@ export function RecordForm({
           )}
 
           <Card className="space-y-3 p-5">
-            <p className="text-sm font-bold text-zinc-900">L1 · Asset</p>
+            <p className="text-sm font-bold text-zinc-900">Asset</p>
             <div className="grid gap-2">
               {catalogAssets.map((item) => (
                 <button

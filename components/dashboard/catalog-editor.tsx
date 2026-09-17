@@ -344,7 +344,7 @@ export function AssetCatalogEditor({
           <div className="flex flex-wrap items-end gap-3">
             <div className="min-w-56 flex-1">
               <label className="mb-1 block text-xs font-semibold text-zinc-500">
-                Asset name (L1)
+                Asset name
               </label>
               <input
                 className={inputCls}

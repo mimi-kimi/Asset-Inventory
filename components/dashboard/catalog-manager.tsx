@@ -289,9 +289,9 @@ export function CatalogManager({
         <div>
           <h1 className="text-2xl font-bold text-zinc-900">Asset catalog</h1>
           <p className="mt-0.5 max-w-3xl text-sm text-zinc-500">
-            The inspection options live here: each <strong>L1 asset</strong> gets the
-            levels it needs (<strong>L2…L6</strong>), each level holds its values, and a
-            value can carry the price — everything under it inherits that price.
+            The inspection options live here: every asset gets the levels it needs,
+            each level holds its values, and the price sits on the value that ends a
+            combination.
           </p>
           <p className="mt-1 text-xs text-zinc-400">
             {tree.assets.length} assets · {totals.levels} levels · {totals.options}{" "}
@@ -346,7 +346,7 @@ export function CatalogManager({
 
       {addOpen && (
         <Card className="space-y-3 p-5">
-          <p className="text-sm font-bold text-zinc-900">New asset (L1)</p>
+          <p className="text-sm font-bold text-zinc-900">New asset</p>
           <div className="flex flex-wrap items-end gap-3">
             <div className="min-w-56 flex-1">
               <label className={labelCls}>Asset name</label>
@@ -359,7 +359,7 @@ export function CatalogManager({
             </div>
             <div className="min-w-56 flex-1">
               <label className={labelCls}>
-                First level label (optional — becomes L2)
+                First level name (optional)
               </label>
               <input
                 className={inputCls}
@@ -486,7 +486,7 @@ export function CatalogManager({
           <EmptyState
             icon={<Package className="h-8 w-8" />}
             title="No assets yet"
-            hint="Add your first L1 asset (then its L2…L6 levels and values), or import the Aset perabot jalan sheet — the import only adds what is missing."
+            hint="Add your first asset (then its levels and values), or import the Aset perabot jalan sheet — the import only adds what is missing."
             action={
               <button
                 type="button"
@@ -522,7 +522,6 @@ export function CatalogManager({
                       )}
                     />
                     {asset.name}
-                    <span className="text-[11px] font-normal text-zinc-400">L1</span>
                   </p>
                   <p className="truncate text-xs text-zinc-500">
                     {asset.levels.map((level) => level.label).join(" · ") ||

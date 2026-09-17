@@ -40,8 +40,8 @@ export default async function CatalogPage({
           in the Supabase SQL editor? It creates{" "}
           <code className="rounded bg-red-100 px-1">catalog_assets</code>,{" "}
           <code className="rounded bg-red-100 px-1">catalog_levels</code>,{" "}
-          <code className="rounded bg-red-100 px-1">catalog_options</code> and the L1–L6
-          columns on <code className="rounded bg-red-100 px-1">inspections</code>.
+          <code className="rounded bg-red-100 px-1">catalog_options</code> and the
+          snapshot columns on <code className="rounded bg-red-100 px-1">inspections</code>.
         </p>
       </div>
     );

@@ -22,7 +22,7 @@ lights, stop lights, road lamps and more.
 - **Task import** (CSV/Excel): `No, ID-Inventory, Position_X(lng), Position_Y(lat), Price, Type, Remarks`
 - **Map dashboard** (desktop): map always visible under the header — colored markers (🔵 not inspected · 🟢 working · 🔴 not working), task selector, total price + asset distribution panel, status panel
 - **Mobile app** with 4 tabs — Map · Task · Record · Profile — and a **QR-scanner/manual** inspection flow: ID-Inventory → photo → **asset → its values per level → price** (from the catalog, optional override) → working? → remarks
-- **Asset catalog** (`/dashboard/catalog`, admin): manage each L1 asset, give it the named levels it needs (`KETERANGAN · ARM · WATT · TIANG`, or just `AMP` for a feeder pillar), edit the values and the price of each combination; importing the *Aset perabot jalan* sheet is a helper that only adds what is missing
+- **Asset catalog** (`/dashboard/catalog`, admin): manage each asset, give it the named levels it needs (`KETERANGAN · ARM · WATT · TIANG`, or just `AMP` for a feeder pillar), edit the values and the price of each combination; importing the *Aset perabot jalan* sheet is a helper that only adds what is missing
 - **Desktop header “Mobile” button** opens the inspector app; mobile users get
   back to the dashboard from *Profile → Open desktop dashboard*
 - Asset catalog with types (signboards, signals, lamps, guardrails, …)
@@ -46,7 +46,7 @@ supabase/schema.sql   one-time database setup
    `supabase/schema.sql`, `supabase/migration_v2.sql` (tasks + import columns),
    `supabase/migration_v3.sql` (inspection photo column),
    `supabase/migration_v4.sql` (username login + admin-managed users) and
-   `supabase/migration_v5.sql` (asset catalog L1–L6 + inspection snapshot columns).
+   `supabase/migration_v5.sql` (asset catalog + inspection snapshot columns).
    A sample import file lives at `public/sample-task.csv`.
 3. **Disable self sign-up** — Supabase → *Authentication → Providers → Email* →
    turn **off** "Allow new users to sign up". Accounts are created by admins only.
@@ -172,13 +172,13 @@ where email = 'admin@assets.local';
 `auth.identities` — if the statement errors about it, delete that column from
 the insert list.*
 
-## Asset catalog (L1 → L6)
+## Asset catalog
 
 `supabase/migration_v5.sql` adds three tables plus the matching snapshot columns
 on `inspections`, so the catalog is data you manage in the app:
 
 ```
-catalog_assets   L1 — 'LAMPU JALAN', 'KIOSK', … (+ the price heading, e.g. "HARGA")
+catalog_assets   the assets — 'LAMPU JALAN', 'KIOSK', … (+ the price heading, e.g. "HARGA")
 catalog_levels   the named levels an asset uses, in order (as many as it needs)
 catalog_options  the value tree: parent_id links a value to the one above it
                  the price sits on the value that ENDS a combination
@@ -215,7 +215,7 @@ Design points:
   `price_manual`, `other_description`).
 
 ### On the phone
-The **Asset** step shows L1 buttons → chips for each level the asset defines
+The **Asset** step shows the asset buttons → chips for each level the asset defines
 (titled with the level's name) → a single price box labelled with the asset's
 price heading (`HARGA`). A price is **skipped by default**: leave the box empty,
 or type a number to override/fill it. Anything not in the catalog is recorded

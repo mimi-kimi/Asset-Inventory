@@ -142,8 +142,8 @@ export default async function InspectionsPage({
             <thead className="border-b border-zinc-200 bg-zinc-50 text-xs font-semibold uppercase tracking-wide text-zinc-500">
               <tr>
                 <th className="px-5 py-3">Asset</th>
-                <th className="px-5 py-3">Asset (L1)</th>
-                <th className="px-5 py-3">Price (L6)</th>
+                <th className="px-5 py-3">Asset</th>
+                <th className="px-5 py-3">Price</th>
                 <th className="px-5 py-3">Condition</th>
                 <th className="px-5 py-3">Works?</th>
                 <th className="px-5 py-3">Inspected by</th>

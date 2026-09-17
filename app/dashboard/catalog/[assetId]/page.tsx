@@ -47,9 +47,9 @@ export default async function CatalogAssetPage({
       <div>
         <h1 className="text-2xl font-bold text-zinc-900">{asset.name}</h1>
         <p className="mt-0.5 max-w-3xl text-sm text-zinc-500">
-          Rename the asset, add or remove its levels (L2…L6) and edit every value with
-          its price. Values are typed one per line; the price is optional and any level
-          below inherits it.
+          Rename the asset, add or remove its levels and edit every value with its
+          price. Values are typed one per line; the price is optional and belongs to
+          the value that ends a combination.
         </p>
       </div>
 

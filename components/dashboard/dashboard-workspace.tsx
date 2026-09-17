@@ -380,7 +380,7 @@ export function DashboardWorkspace({
 
             <dl className="space-y-2.5 border-t border-zinc-100 pt-4 text-sm">
               <div className="flex justify-between gap-3">
-                <dt className="text-xs font-semibold text-zinc-400">Price (L6)</dt>
+                <dt className="text-xs font-semibold text-zinc-400">Price</dt>
                 <dd className="text-right font-bold text-zinc-900">
                   {latestInspection?.price !== null &&
                   latestInspection?.price !== undefined
@@ -397,7 +397,7 @@ export function DashboardWorkspace({
               </div>
               {latestInspection?.asset_category && (
                 <div className="flex justify-between gap-3">
-                  <dt className="text-xs font-semibold text-zinc-400">Asset (L1)</dt>
+                  <dt className="text-xs font-semibold text-zinc-400">Asset</dt>
                   <dd className="truncate text-right text-zinc-700">
                     {latestInspection.asset_category}
                   </dd>

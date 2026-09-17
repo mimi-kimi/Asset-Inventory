@@ -25,19 +25,52 @@ export interface TaskRow {
   created_at: string;
 }
 
-/* ---------- aset perabot jalan price catalog (structure lives in lib/catalog-data.ts) ---------- */
+/* ---------- asset catalog: assets (L1) → levels (L2..L6) → options (+ price) ---------- */
 
-/** One row of `public.catalog_prices`: a price for an L1..L5 combination. */
-export interface CatalogPrice {
+/** L1 — a catalog asset, e.g. "LAMPU JALAN". */
+export interface CatalogAssetRow {
   id: string;
-  asset_key: string;
-  l2: string;
-  l3: string;
-  l4: string;
-  l5: string;
+  name: string;
+  sort_order: number;
+  created_at?: string;
+}
+
+/** A named level of one asset (L2..L6) — the heading the options live under. */
+export interface CatalogLevelRow {
+  id: string;
+  asset_id: string;
+  level_no: number;
+  label: string;
+}
+
+/**
+ * One selectable value. Options form a tree: `parent_id` is the option chosen at
+ * the level above (null for L2). A price on a node applies to everything under
+ * it; the deepest non-null price on the picked path wins.
+ */
+export interface CatalogOptionRow {
+  id: string;
+  asset_id: string;
+  level_no: number;
+  parent_id: string | null;
+  value: string;
   price: number | null;
   raw_price?: string | null;
-  updated_at?: string;
+  sort_order: number;
+}
+
+export interface CatalogData {
+  assets: CatalogAssetRow[];
+  levels: CatalogLevelRow[];
+  options: CatalogOptionRow[];
+}
+
+/** One step of `inspections.catalog_path` — the snapshot of what was picked. */
+export interface CatalogPathStep {
+  level_no: number;
+  label?: string | null;
+  value: string;
+  option_id?: string | null;
 }
 
 export interface AssetType {
@@ -77,11 +110,13 @@ export interface AssetRow {
     price?: number | null;
     price_manual?: boolean | null;
     asset_category?: string | null;
-    catalog_asset_key?: string | null;
+    catalog_asset_id?: string | null;
+    catalog_path?: CatalogPathStep[] | null;
     l2?: string | null;
     l3?: string | null;
     l4?: string | null;
     l5?: string | null;
+    l6?: string | null;
     other_description?: string | null;
   }> | null;
 }
@@ -103,12 +138,14 @@ export interface InspectionRow {
   remarks: string | null;
   photo_webp?: string | null;
   /* v5 catalog selections */
-  catalog_asset_key?: string | null;
+  catalog_asset_id?: string | null;
   asset_category?: string | null;
+  catalog_path?: CatalogPathStep[] | null;
   l2?: string | null;
   l3?: string | null;
   l4?: string | null;
   l5?: string | null;
+  l6?: string | null;
   price?: number | null;
   price_manual?: boolean;
   other_description?: string | null;

@@ -1,19 +1,32 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Camera, CheckCircle2, Loader2, Save } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { fileToWebpDataUrl } from "@/lib/image";
 import { cn } from "@/lib/format";
-import type { AssetRow, AssetType, CatalogPrice, InspectionRow } from "@/lib/types";
+import type {
+  AssetRow,
+  AssetType,
+  CatalogAssetRow,
+  CatalogData,
+  CatalogLevelRow,
+  CatalogOptionRow,
+  InspectionRow,
+} from "@/lib/types";
 import {
-  CATALOG_ASSETS,
-  CATALOG_BY_KEY,
-  levelsOf,
-  matchCatalogAsset,
-} from "@/lib/catalog-data";
+  buildTree,
+  childrenOf,
+  levelLabel,
+  MAX_LEVEL,
+  pathSteps,
+  priceLevelNo,
+  priceOfPath,
+  selectionPath,
+} from "@/lib/catalog-tree";
+import type { CatalogAssetTree } from "@/lib/catalog-tree";
 import { btnSecondary, Card, inputCls, labelCls } from "@/components/ui";
 import { QrScannerOverlay } from "@/components/mobile/qr-scanner";
 
@@ -46,20 +59,16 @@ export function RecordForm({
   const [working, setWorking] = useState(inspection?.functional ?? true);
   const [remarks, setRemarks] = useState(inspection?.remarks ?? "");
 
-  /* ---------- prices (structure comes from lib/catalog-data.ts) ---------- */
-  const [prices, setPrices] = useState<CatalogPrice[]>([]);
-  const [pricesLoading, setPricesLoading] = useState(true);
+  /* ---------- catalog: L1 assets → L2..L6 options (+ inherited price) ---------- */
+  const [catalogAssets, setCatalogAssets] = useState<CatalogAssetRow[]>([]);
+  const [catalogLoading, setCatalogLoading] = useState(true);
   const [assetId, setAssetId] = useState<string>(
-    inspection?.catalog_asset_key ??
-      matchCatalogAsset(inspection?.asset_category)?.key ??
-      "",
+    inspection?.catalog_asset_id ?? "",
   );
-  const [selection, setSelection] = useState<Record<number, string>>({
-    2: inspection?.l2 ?? "",
-    3: inspection?.l3 ?? "",
-    4: inspection?.l4 ?? "",
-    5: inspection?.l5 ?? "",
-  });
+  const [assetTree, setAssetTree] = useState<CatalogAssetTree | null>(null);
+  const [loadedAssetId, setLoadedAssetId] = useState("");
+  const [selection, setSelection] = useState<Record<number, string>>({});
+  const prefillRef = useRef(false);
   const [manualPrice, setManualPrice] = useState(
     inspection?.price_manual &&
       inspection.price !== null &&
@@ -74,20 +83,21 @@ export function RecordForm({
   const [error, setError] = useState("");
   const [done, setDone] = useState(false);
 
-  /* ---------- load the stored prices once ---------- */
+  /* ---------- load the catalog: L1 list, then the picked asset's branch ---------- */
   useEffect(() => {
     let alive = true;
     (async () => {
       try {
         const { data } = await supabase
-          .from("catalog_prices")
-          .select("id, asset_key, l2, l3, l4, l5, price");
+          .from("catalog_assets")
+          .select("id, name, sort_order")
+          .order("sort_order");
         if (!alive) return;
-        setPrices((data ?? []) as CatalogPrice[]);
+        setCatalogAssets((data ?? []) as CatalogAssetRow[]);
       } catch {
-        /* prices not imported yet — the Asset step asks for a manual price */
+        /* no catalog yet — the Asset step explains what to do */
       } finally {
-        if (alive) setPricesLoading(false);
+        if (alive) setCatalogLoading(false);
       }
     })();
     return () => {
@@ -96,27 +106,104 @@ export function RecordForm({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  /* ---------- derived catalog helpers ---------- */
-  /** selectable values for a level (hardcoded structure) */
-  function optionsFor(assetKey: string, level: number): string[] {
-    const def = CATALOG_BY_KEY[assetKey];
-    if (!def) return [];
-    return [...(def.options[level as 2 | 3 | 4 | 5] ?? [])];
-  }
+  useEffect(() => {
+    if (!assetId || assetId === OTHER) return;
+    let alive = true;
+    (async () => {
+      try {
+        const [levels, options] = await Promise.all([
+          supabase
+            .from("catalog_levels")
+            .select("id, asset_id, level_no, label")
+            .eq("asset_id", assetId),
+          supabase
+            .from("catalog_options")
+            .select("id, asset_id, level_no, parent_id, value, price, raw_price, sort_order")
+            .eq("asset_id", assetId),
+        ]);
+        if (!alive) return;
+        const summary = catalogAssets.find((item) => item.id === assetId);
+        const data: CatalogData = {
+          assets: summary ? [summary] : [],
+          levels: (levels.data ?? []) as CatalogLevelRow[],
+          options: (options.data ?? []) as CatalogOptionRow[],
+        };
+        const tree = buildTree(data).assets[0] ?? null;
+        setAssetTree(tree);
 
-  /** price for the whole L1..L5 combination (null = not in the price table) */
-  function priceFor(assetKey: string, levels: { level: number }[]): number | null {
-    const wanted = (k: number) =>
-      levels.some((l) => l.level === k) ? selection[k] ?? "" : "";
-    const row = prices.find(
-      (p) =>
-        p.asset_key === assetKey &&
-        p.l2 === wanted(2) &&
-        p.l3 === wanted(3) &&
-        p.l4 === wanted(4) &&
-        p.l5 === wanted(5),
-    );
-    return row ? row.price : null;
+        /* editing an existing record: rebuild the picked chain */
+        if (tree && inspection && !prefillRef.current) {
+          prefillRef.current = true;
+          const next: Record<number, string> = {};
+          for (const step of inspection.catalog_path ?? []) {
+            if (step.option_id && tree.optionById.has(step.option_id)) {
+              next[step.level_no] = step.option_id;
+            }
+          }
+          if (Object.keys(next).length === 0) {
+            const texts = [
+              inspection.l2,
+              inspection.l3,
+              inspection.l4,
+              inspection.l5,
+              inspection.l6,
+            ];
+            let parentId: string | null = null;
+            texts.forEach((text, index) => {
+              if (!text) return;
+              const level = index + 2;
+              const match = childrenOf(tree, parentId).find(
+                (option) => option.value.toLowerCase() === text.toLowerCase(),
+              );
+              if (match) {
+                next[level] = match.id;
+                parentId = match.id;
+              }
+            });
+          }
+          setSelection(next);
+        }
+      } catch {
+        if (alive) setAssetTree(null);
+      } finally {
+        if (alive) setLoadedAssetId(assetId);
+      }
+    })();
+    return () => {
+      alive = false;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [assetId, catalogAssets.length, inspection]);
+
+/*__RF_DERIVED__*/
+
+  /* ---------- derived: cascade, price and summary ---------- */
+  /** only trust the fetched tree when it belongs to the currently picked asset */
+  const activeAsset =
+    assetId && assetId !== OTHER && loadedAssetId === assetId ? assetTree : null;
+  const isOther = assetId === OTHER;
+  const assetLoading = Boolean(assetId) && !isOther && loadedAssetId !== assetId;
+  const chain = activeAsset ? selectionPath(activeAsset, selection) : [];
+  const autoPrice = activeAsset ? priceOfPath(chain).price : null;
+  const priceLabel = activeAsset ? priceLevelNo(activeAsset) : 6;
+  const selectedSteps = activeAsset && !isOther ? pathSteps(activeAsset, chain) : [];
+
+  /** Levels to show: L2 first, then every level the picked chain reaches. */
+  const levelBlocks: {
+    level: number;
+    label: string | null;
+    options: CatalogOptionRow[];
+  }[] = [];
+  if (activeAsset) {
+    let parentId: string | null = null;
+    for (let level = 2; level <= MAX_LEVEL; level += 1) {
+      const options = childrenOf(activeAsset, parentId);
+      if (options.length === 0) break;
+      levelBlocks.push({ level, label: levelLabel(activeAsset, level), options });
+      const picked = selection[level];
+      if (!picked) break;
+      parentId = picked;
+    }
   }
 
   /* ---------- handlers ---------- */
@@ -139,24 +226,23 @@ export function RecordForm({
 
   function chooseAsset(nextId: string) {
     setAssetId(nextId);
-    setSelection({ 2: "", 3: "", 4: "", 5: "" });
+    setSelection({});
     setManualPrice("");
     setError("");
   }
 
-  function chooseValue(level: number, value: string) {
+  /** picking a value at a level clears everything below it */
+  function chooseValue(level: number, optionId: string) {
     setSelection((prev) => {
-      const next: Record<number, string> = { ...prev, [level]: value };
-      for (let k = level + 1; k <= 5; k += 1) next[k] = "";
+      const next: Record<number, string> = { ...prev, [level]: optionId };
+      for (let deeper = level + 1; deeper <= MAX_LEVEL; deeper += 1) {
+        delete next[deeper];
+      }
       return next;
     });
     setError("");
   }
 
-  const chosenAsset =
-    assetId && assetId !== OTHER ? CATALOG_BY_KEY[assetId] ?? null : null;
-  const activeLevels = chosenAsset ? levelsOf(chosenAsset) : [];
-  const autoPrice = chosenAsset ? priceFor(chosenAsset.key, activeLevels) : null;
   /* a typed price overrides the listed one; an empty box means "skipped" */
   const manualPriceNumber = Number(manualPrice.replace(/[^0-9.\-]/g, ""));
   const typedPrice =
@@ -169,19 +255,19 @@ export function RecordForm({
     if (!asset) return;
     setError("");
 
-    const isOther = assetId === OTHER;
     if (!isOther) {
-      if (!chosenAsset) {
+      if (!activeAsset) {
         setError("Choose an asset first.");
         setStep(2);
         return;
       }
-      for (const l of activeLevels) {
-        if (!selection[l.level]) {
-          setError(`Please choose L${l.level} (${l.label}).`);
-          setStep(2);
-          return;
-        }
+      const missing = levelBlocks.find((block) => !selection[block.level]);
+      if (missing) {
+        setError(
+          `Please choose L${missing.level}${missing.label ? ` (${missing.label})` : ""}.`,
+        );
+        setStep(2);
+        return;
       }
     } else if (!otherName.trim()) {
       setError("Describe the asset (Lain-lain).");
@@ -195,7 +281,7 @@ export function RecordForm({
       const user = userData.user;
       if (!user) throw new Error("You must be signed in.");
 
-      const category = isOther ? "LAIN-LAIN" : chosenAsset!.name;
+      const category = isOther ? "LAIN-LAIN" : activeAsset!.name;
       const match = assetTypes.find(
         (t) => t.name.toLowerCase() === category.toLowerCase(),
       );
@@ -213,13 +299,18 @@ export function RecordForm({
         .eq("id", asset.id);
       if (assetError) throw assetError;
 
+      const stepValue = (level: number) =>
+        selectedSteps.find((step) => step.level_no === level)?.value ?? null;
+
       const catalogFields = {
-        catalog_asset_key: isOther ? null : chosenAsset!.key,
+        catalog_asset_id: isOther ? null : activeAsset!.id,
         asset_category: category,
-        l2: isOther ? null : selection[2] || null,
-        l3: isOther ? null : selection[3] || null,
-        l4: isOther ? null : selection[4] || null,
-        l5: isOther ? null : selection[5] || null,
+        catalog_path: isOther ? null : selectedSteps,
+        l2: stepValue(2),
+        l3: stepValue(3),
+        l4: stepValue(4),
+        l5: stepValue(5),
+        l6: stepValue(6),
         price: effectivePrice,
         price_manual: typedPrice !== null,
         other_description: isOther ? otherName.trim() : null,
@@ -284,7 +375,7 @@ export function RecordForm({
         </h2>
         <p className="mt-1 text-sm text-zinc-500">
           {inventoryId || asset.inventory_id || "No ID-Inventory"} —{" "}
-          {assetId === OTHER ? otherName : chosenAsset?.name ?? "—"}
+          {assetId === OTHER ? otherName : activeAsset?.name ?? "—"}
           {effectivePrice !== null ? ` · ${money(effectivePrice)}` : ""}
         </p>
         <div className="mt-6 flex flex-col gap-2">
@@ -449,35 +540,34 @@ export function RecordForm({
       )}
       {step === 2 && (
         <div className="space-y-3">
-          {pricesLoading && (
-            <Card className="p-3 text-xs text-zinc-500">Loading stored prices…</Card>
+          {catalogLoading && (
+            <Card className="p-3 text-xs text-zinc-500">Loading the catalog…</Card>
           )}
 
-          {!pricesLoading && prices.length === 0 && (
+          {!catalogLoading && catalogAssets.length === 0 && (
             <Card className="border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
-              No prices imported yet — pick the values below and leave the price empty
-              (it is saved as skipped) or type one. An admin can import the{" "}
-              <strong>Aset perabot jalan</strong> sheet from{" "}
-              <strong>Dashboard → Catalog</strong>.
+              The catalog is empty — an admin can build it in{" "}
+              <strong>Dashboard → Catalog</strong> (add assets, levels and values) or
+              load the <strong>Aset perabot jalan</strong> sheet there.
             </Card>
           )}
 
           <Card className="space-y-3 p-5">
             <p className="text-sm font-bold text-zinc-900">L1 · Asset</p>
             <div className="grid gap-2">
-              {CATALOG_ASSETS.map((a) => (
+              {catalogAssets.map((item) => (
                 <button
-                  key={a.key}
+                  key={item.id}
                   type="button"
-                  onClick={() => chooseAsset(a.key)}
+                  onClick={() => chooseAsset(item.id)}
                   className={cn(
                     "rounded-xl border-2 px-3 py-2.5 text-left text-sm font-semibold transition-colors",
-                    assetId === a.key
+                    assetId === item.id
                       ? "border-amber-500 bg-amber-50 text-zinc-900"
                       : "border-zinc-200 bg-white text-zinc-700 hover:border-zinc-300",
                   )}
                 >
-                  {a.name}
+                  {item.name}
                 </button>
               ))}
               <button
@@ -495,44 +585,42 @@ export function RecordForm({
             </div>
           </Card>
 
-          {chosenAsset &&
-            activeLevels.map((l) => {
-              if (l.level > 2 && !selection[l.level - 1]) return null;
-              const options = optionsFor(chosenAsset.key, l.level);
-              return (
-                <Card key={l.level} className="space-y-3 p-5">
-                  <p className="text-sm font-bold text-zinc-900">
-                    L{l.level} · {l.label}
-                  </p>
-                  {options.length === 0 ? (
-                    <p className="text-xs text-zinc-400">
-                      No options available for the choices above.
-                    </p>
-                  ) : (
-                    <div className="flex flex-wrap gap-1.5">
-                      {options.map((value) => (
-                        <button
-                          key={value}
-                          type="button"
-                          onClick={() => chooseValue(l.level, value)}
-                          className={cn(
-                            "rounded-full px-3 py-1.5 text-xs font-semibold transition-colors",
-                            selection[l.level] === value
-                              ? "bg-amber-500 text-zinc-950"
-                              : "bg-zinc-100 text-zinc-600 hover:bg-zinc-200",
-                          )}
-                        >
-                          {value}
-                        </button>
-                      ))}
-                    </div>
-                  )}
-                </Card>
-              );
-            })}
-          {chosenAsset && (
+          {assetLoading && (
+            <Card className="p-3 text-xs text-zinc-500">Loading that asset…</Card>
+          )}
+
+          {levelBlocks.map((block) => (
+            <Card key={block.level} className="space-y-3 p-5">
+              <p className="text-sm font-bold text-zinc-900">
+                L{block.level}
+                {block.label ? ` · ${block.label}` : ""}
+              </p>
+              <div className="flex flex-wrap gap-1.5">
+                {block.options.map((option) => (
+                  <button
+                    key={option.id}
+                    type="button"
+                    onClick={() => chooseValue(block.level, option.id)}
+                    className={cn(
+                      "rounded-full px-3 py-1.5 text-xs font-semibold transition-colors",
+                      selection[block.level] === option.id
+                        ? "bg-amber-500 text-zinc-950"
+                        : "bg-zinc-100 text-zinc-600 hover:bg-zinc-200",
+                    )}
+                  >
+                    {option.value}
+                    {option.price !== null && option.price !== undefined
+                      ? ` · ${money(option.price)}`
+                      : ""}
+                  </button>
+                ))}
+              </div>
+            </Card>
+          ))}
+
+          {activeAsset && (
             <Card className="space-y-3 p-5">
-              <p className="text-sm font-bold text-zinc-900">L6 · Price</p>
+              <p className="text-sm font-bold text-zinc-900">L{priceLabel} · Price</p>
               {autoPrice !== null ? (
                 <>
                   <p className="text-2xl font-bold text-emerald-600">
@@ -653,21 +741,20 @@ export function RecordForm({
               <span className="text-right font-semibold text-zinc-800">
                 {assetId === OTHER
                   ? otherName || "Lain-lain"
-                  : chosenAsset?.name ?? "—"}
+                  : activeAsset?.name ?? "—"}
               </span>
             </div>
-            {activeLevels.map((l) => (
-              <div key={l.level} className="flex justify-between gap-3">
+            {selectedSteps.map((step) => (
+              <div key={step.level_no} className="flex justify-between gap-3">
                 <span className="text-zinc-500">
-                  L{l.level} · {l.label}
+                  L{step.level_no}
+                  {step.label ? ` · ${step.label}` : ""}
                 </span>
-                <span className="text-right text-zinc-800">
-                  {selection[l.level] || "—"}
-                </span>
+                <span className="text-right text-zinc-800">{step.value}</span>
               </div>
             ))}
             <div className="flex justify-between gap-3 border-t border-zinc-100 pt-1.5">
-              <span className="text-zinc-500">Price (L6)</span>
+              <span className="text-zinc-500">Price (L{priceLabel})</span>
               <span className="text-right font-bold text-zinc-900">
                 {effectivePrice !== null ? money(effectivePrice) : "Skipped"}
               </span>
@@ -704,8 +791,8 @@ export function RecordForm({
                   ? true
                   : assetId === OTHER
                     ? otherName.trim() === ""
-                    : !chosenAsset ||
-                      activeLevels.some((l) => !selection[l.level])))
+                    : !activeAsset ||
+                      levelBlocks.some((block) => !selection[block.level])))
             }
             className="rounded-xl bg-amber-500 px-6 py-2.5 text-sm font-bold text-zinc-950 disabled:cursor-not-allowed disabled:bg-zinc-200 disabled:text-zinc-400"
           >

@@ -2,19 +2,24 @@
 
 import { useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Check, Loader2, Package, Save, Upload } from "lucide-react";
+import { ChevronRight, Layers, Loader2, Package, Plus, Upload } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
-import { parseCatalogFile, flattenToPriceRows } from "@/lib/catalog-import";
-import type { FlatCatalogImport } from "@/lib/catalog-import";
-import { CATALOG_ASSETS, CATALOG_META, levelsOf } from "@/lib/catalog-data";
-import { describeError } from "@/lib/format";
-import type { CatalogPrice } from "@/lib/types";
-import { btnPrimary, btnSecondary, Card, EmptyState, inputCls } from "@/components/ui";
+import { buildTree, coverageOf } from "@/lib/catalog-tree";
+import { planCatalogMerge } from "@/lib/catalog-merge";
+import type { CatalogMergePlan } from "@/lib/catalog-merge";
+import { parseCatalogFile } from "@/lib/catalog-import";
+import { cn, describeError } from "@/lib/format";
+import type { CatalogData } from "@/lib/types";
+import { AssetCatalogEditor } from "@/components/dashboard/catalog-editor";
+import { btnPrimary, btnSecondary, Card, EmptyState, inputCls, labelCls } from "@/components/ui";
 
 interface ImportReport {
-  rows: number;
-  priced: number;
-  missing: number;
+  assets: number;
+  levels: number;
+  options: number;
+  prices: number;
+  skipped: number;
+  refreshed: number;
 }
 
 function chunk<T>(items: T[], size: number): T[][] {
@@ -23,52 +28,112 @@ function chunk<T>(items: T[], size: number): T[][] {
   return out;
 }
 
-function rowKey(assetKey: string, parts: (string | null | undefined)[]): string {
-  return [assetKey, ...parts.map((p) => p ?? "")].join("|");
-}
-
-export function CatalogManager({ prices }: { prices: CatalogPrice[] }) {
+export function CatalogManager({
+  catalog,
+  initialAssetId = "",
+}: {
+  catalog: CatalogData;
+  initialAssetId?: string;
+}) {
   const router = useRouter();
   const supabase = createClient();
   const fileRef = useRef<HTMLInputElement | null>(null);
 
-  const [flat, setFlat] = useState<FlatCatalogImport | null>(null);
-  const [fileName, setFileName] = useState("");
+  const [expanded, setExpanded] = useState<string[]>(
+    initialAssetId ? [initialAssetId] : [],
+  );
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
   const [report, setReport] = useState<ImportReport | null>(null);
 
-  /** unsaved price inputs, keyed by rowKey() */
-  const [edits, setEdits] = useState<Record<string, string>>({});
-  const [savingRow, setSavingRow] = useState("");
-  const [savedRow, setSavedRow] = useState("");
-  const [onlyMissing, setOnlyMissing] = useState(false);
+  const [addOpen, setAddOpen] = useState(false);
+  const [newName, setNewName] = useState("");
+  const [newLabel, setNewLabel] = useState("");
+
+  const [plan, setPlan] = useState<CatalogMergePlan | null>(null);
+  const [fileName, setFileName] = useState("");
+  const [refreshPrices, setRefreshPrices] = useState(false);
   const [search, setSearch] = useState("");
+  const [onlyMissing, setOnlyMissing] = useState(false);
 
-  const groups = useMemo(() => {
-    const byAsset = new Map<string, CatalogPrice[]>();
-    for (const row of prices) {
-      const list = byAsset.get(row.asset_key) ?? [];
-      list.push(row);
-      byAsset.set(row.asset_key, list);
+  const tree = useMemo(() => buildTree(catalog), [catalog]);
+  const totals = useMemo(() => {
+    let levels = 0;
+    let options = 0;
+    let combinations = 0;
+    let priced = 0;
+    for (const asset of tree.assets) {
+      levels += asset.levels.length;
+      options += asset.options.length;
+      const cover = coverageOf(asset);
+      combinations += cover.combinations;
+      priced += cover.priced;
     }
-    return CATALOG_ASSETS.map((asset) => {
-      const rows = [...(byAsset.get(asset.key) ?? [])].sort((a, b) =>
-        [a.l2, a.l3, a.l4, a.l5].join("|").localeCompare([b.l2, b.l3, b.l4, b.l5].join("|")),
-      );
-      const priced = rows.filter((r) => r.price !== null).length;
-      return { asset, rows, priced };
-    });
-  }, [prices]);
-
-  const totalRows = groups.reduce((n, g) => n + g.rows.length, 0);
-  const totalPriced = groups.reduce((n, g) => n + g.priced, 0);
-  const untracked = prices.filter(
-    (p) => !CATALOG_ASSETS.some((a) => a.key === p.asset_key),
-  ).length;
+    return { levels, options, combinations, priced };
+  }, [tree]);
 
   const needle = search.trim().toLowerCase();
+  const visibleAssets = tree.assets.filter((asset) => {
+    if (onlyMissing) {
+      const cover = coverageOf(asset);
+      if (cover.combinations > 0 && cover.priced === cover.combinations) return false;
+    }
+    if (!needle) return true;
+    return [
+      asset.name,
+      ...asset.levels.map((level) => `L${level.level_no} ${level.label}`),
+      ...asset.options.map((option) => option.value),
+    ]
+      .join(" ")
+      .toLowerCase()
+      .includes(needle);
+  });
+
+  function toggle(assetId: string) {
+    setExpanded((prev) =>
+      prev.includes(assetId)
+        ? prev.filter((id) => id !== assetId)
+        : [...prev, assetId],
+    );
+  }
+
+  async function addAsset() {
+    const name = newName.trim();
+    if (!name) {
+      setError("Give the new asset a name.");
+      return;
+    }
+    setBusy(true);
+    setError("");
+    setNotice("");
+    try {
+      const id = crypto.randomUUID();
+      const { error: assetError } = await supabase
+        .from("catalog_assets")
+        .insert({ id, name, sort_order: catalog.assets.length });
+      if (assetError) throw assetError;
+
+      const label = newLabel.trim();
+      if (label) {
+        const { error: levelError } = await supabase
+          .from("catalog_levels")
+          .insert({ asset_id: id, level_no: 2, label });
+        if (levelError) throw levelError;
+      }
+
+      setNewName("");
+      setNewLabel("");
+      setAddOpen(false);
+      setExpanded((prev) => [...prev, id]);
+      setNotice(`"${name}" created — add its levels and options below.`);
+      router.refresh();
+    } catch (err) {
+      setError(describeError(err, "Could not create the asset."));
+    } finally {
+      setBusy(false);
+    }
+  }
 
   async function handleFile(file: File | null | undefined) {
     if (!file) return;
@@ -77,86 +142,127 @@ export function CatalogManager({ prices }: { prices: CatalogPrice[] }) {
     setReport(null);
     setFileName(file.name);
     try {
-      const result = await parseCatalogFile(await file.arrayBuffer());
-      setFlat(flattenToPriceRows(result));
+      const parsed = await parseCatalogFile(await file.arrayBuffer());
+      setPlan(planCatalogMerge(parsed, catalog));
     } catch (err) {
+      setPlan(null);
       setError(describeError(err, "Could not read that file."));
-      setFlat(null);
     }
   }
 
-  async function runImport() {
-    if (!flat || flat.rows.length === 0) return;
+  /** Writes the merge plan: inserts only what is missing (ids generated here). */
+  async function applyPlan() {
+    if (!plan) return;
     setBusy(true);
     setError("");
     setNotice("");
     try {
-      const { error: delError } = await supabase
-        .from("catalog_prices")
-        .delete()
-        .not("id", "is", null);
-      if (delError) throw delError;
+      const nameToId = new Map<string, string>();
+      for (const asset of catalog.assets) {
+        nameToId.set(asset.name.trim().toLowerCase(), asset.id);
+      }
 
-      for (const part of chunk(flat.rows, 500)) {
-        const { error: insError } = await supabase.from("catalog_prices").insert(part);
-        if (insError) throw insError;
+      if (plan.newAssets.length > 0) {
+        const rows = plan.newAssets.map((asset) => {
+          const id = crypto.randomUUID();
+          nameToId.set(asset.name.trim().toLowerCase(), id);
+          return { id, name: asset.name, sort_order: asset.sort_order };
+        });
+        const { error: assetError } = await supabase
+          .from("catalog_assets")
+          .insert(rows);
+        if (assetError) throw assetError;
+      }
+
+      if (plan.newLevels.length > 0) {
+        const rows = plan.newLevels.map((level) => {
+          const assetId = nameToId.get(level.assetName.trim().toLowerCase());
+          if (!assetId) throw new Error(`Unknown asset: ${level.assetName}`);
+          return { asset_id: assetId, level_no: level.level_no, label: level.label };
+        });
+        const { error: levelError } = await supabase
+          .from("catalog_levels")
+          .insert(rows);
+        if (levelError) throw levelError;
+      }
+
+      const placeholderIds = new Map<string, string>();
+      const levels = [...new Set(plan.newOptions.map((option) => option.level_no))].sort(
+        (a, b) => a - b,
+      );
+      for (const levelNo of levels) {
+        const batch = plan.newOptions.filter((option) => option.level_no === levelNo);
+        const rows = batch.map((option) => {
+          const assetId = nameToId.get(option.assetName.trim().toLowerCase());
+          if (!assetId) throw new Error(`Unknown asset: ${option.assetName}`);
+          const id = crypto.randomUUID();
+          placeholderIds.set(option.placeholder, id);
+          const parentId = option.parentOptionId
+            ? option.parentOptionId.startsWith("new:")
+              ? placeholderIds.get(option.parentOptionId) ?? null
+              : option.parentOptionId
+            : null;
+          if (option.parentOptionId && !parentId) {
+            throw new Error(`Could not resolve the parent of "${option.value}".`);
+          }
+          return {
+            id,
+            asset_id: assetId,
+            level_no: levelNo,
+            parent_id: parentId,
+            value: option.value,
+            price: option.price,
+            raw_price: option.raw_price,
+            sort_order: option.sort_order,
+          };
+        });
+        const { error: optionError } = await supabase
+          .from("catalog_options")
+          .insert(rows);
+        if (optionError) throw optionError;
+      }
+
+      let refreshed = 0;
+      if (refreshPrices && plan.priceUpdates.length > 0) {
+        for (const part of chunk(plan.priceUpdates, 100)) {
+          const rows = part.map((update) => {
+            const existing = catalog.options.find((option) => option.id === update.id);
+            if (!existing) throw new Error("That price row no longer exists.");
+            return {
+              id: existing.id,
+              asset_id: existing.asset_id,
+              level_no: existing.level_no,
+              parent_id: existing.parent_id,
+              value: existing.value,
+              price: update.price,
+              raw_price: update.raw_price,
+              sort_order: existing.sort_order,
+            };
+          });
+          const { error: updateError } = await supabase
+            .from("catalog_options")
+            .upsert(rows, { onConflict: "id" });
+          if (updateError) throw updateError;
+          refreshed += rows.length;
+        }
       }
 
       setReport({
-        rows: flat.rows.length,
-        priced: flat.pricedCount,
-        missing: flat.missingPriceCount,
+        assets: plan.newAssets.length,
+        levels: plan.newLevels.length,
+        options: plan.newOptions.length,
+        prices: plan.newOptions.filter((option) => option.price !== null).length,
+        skipped: plan.skippedPaths,
+        refreshed,
       });
-      setNotice("Prices imported.");
-      setFlat(null);
+      setNotice("Import finished — only the missing rows were added.");
+      setPlan(null);
       setFileName("");
-      setEdits({});
       router.refresh();
     } catch (err) {
-      setError(describeError(err, "Could not import the prices."));
+      setError(describeError(err, "Could not import those rows."));
     } finally {
       setBusy(false);
-    }
-  }
-
-  async function saveRow(row: CatalogPrice, key: string) {
-    const raw = (edits[key] ?? "").trim();
-    const cleaned = raw.replace(/[^0-9.\-]/g, "");
-    const value =
-      raw === "" ? null : Number.isFinite(Number(cleaned)) ? Number(cleaned) : NaN;
-    if (Number.isNaN(value)) {
-      setError("Prices must be numbers (or empty to clear).");
-      return;
-    }
-
-    setSavingRow(key);
-    setError("");
-    setNotice("");
-    try {
-      const { error: upError } = await supabase.from("catalog_prices").upsert(
-        {
-          asset_key: row.asset_key,
-          l2: row.l2,
-          l3: row.l3,
-          l4: row.l4,
-          l5: row.l5,
-          price: value,
-          updated_at: new Date().toISOString(),
-        },
-        { onConflict: "asset_key,l2,l3,l4,l5" },
-      );
-      if (upError) throw upError;
-      setSavedRow(key);
-      setEdits((prev) => {
-        const next = { ...prev };
-        delete next[key];
-        return next;
-      });
-      router.refresh();
-    } catch (err) {
-      setError(describeError(err, "Could not save that price."));
-    } finally {
-      setSavingRow("");
     }
   }
 
@@ -164,21 +270,15 @@ export function CatalogManager({ prices }: { prices: CatalogPrice[] }) {
     <div className="space-y-5">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-bold text-zinc-900">Price catalog</h1>
+          <h1 className="text-2xl font-bold text-zinc-900">Asset catalog</h1>
           <p className="mt-0.5 max-w-3xl text-sm text-zinc-500">
-            The asset/level structure (L1 → L2–L5) is built into the app —
-            {" "}
-            <code className="rounded bg-zinc-100 px-1">{CATALOG_META.assetCount} assets</code>,{" "}
-            <code className="rounded bg-zinc-100 px-1">
-              {CATALOG_META.combinationCount} combinations
-            </code>
-            {" "}from <strong>{CATALOG_META.sourceFile}</strong>. Only the prices live in
-            Supabase, so you can edit them here or re-import the Excel file any time
-            without redeploying the app.
+            The inspection options live here: each <strong>L1 asset</strong> gets the
+            levels it needs (<strong>L2…L6</strong>), each level holds its values, and a
+            value can carry the price — everything under it inherits that price.
           </p>
           <p className="mt-1 text-xs text-zinc-400">
-            Structure generated {new Date(CATALOG_META.generatedAt).toLocaleString()} ·
-            change the spreadsheet → <code>npm run catalog:gen</code> → commit.
+            {tree.assets.length} assets · {totals.levels} levels · {totals.options}{" "}
+            options · {totals.priced}/{totals.combinations} combination(s) priced
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -194,10 +294,17 @@ export function CatalogManager({ prices }: { prices: CatalogPrice[] }) {
           />
           <button
             type="button"
+            onClick={() => setAddOpen((value) => !value)}
+            className={btnSecondary}
+          >
+            <Plus className="h-4 w-4" /> Add asset
+          </button>
+          <button
+            type="button"
             onClick={() => fileRef.current?.click()}
             className={btnPrimary}
           >
-            <Upload className="h-4 w-4" /> Import Excel prices
+            <Upload className="h-4 w-4" /> Import Excel
           </button>
         </div>
       </div>
@@ -214,245 +321,230 @@ export function CatalogManager({ prices }: { prices: CatalogPrice[] }) {
       )}
       {report && (
         <div className="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800">
-          Imported {report.rows} prices ({report.priced} with a price
-          {report.missing > 0 ? `, ${report.missing} left empty → manual/skip` : ""}).
+          Added {report.assets} asset(s) · {report.levels} level(s) · {report.options}{" "}
+          option(s) ({report.prices} with a price) · {report.skipped} existing row(s)
+          skipped{report.refreshed > 0 ? ` · ${report.refreshed} price(s) refreshed` : ""}.
         </div>
       )}
 
-      {(fileName || flat) && (
+      {addOpen && (
         <Card className="space-y-3 p-5">
-          <p className="text-sm font-semibold text-zinc-900">
-            {fileName ? `File: ${fileName}` : "Ready to import"}
-          </p>
-          {flat && (
+          <p className="text-sm font-bold text-zinc-900">New asset (L1)</p>
+          <div className="flex flex-wrap items-end gap-3">
+            <div className="min-w-56 flex-1">
+              <label className={labelCls}>Asset name</label>
+              <input
+                className={inputCls}
+                value={newName}
+                onChange={(e) => setNewName(e.target.value)}
+                placeholder="e.g. LAMPU JALAN"
+              />
+            </div>
+            <div className="min-w-56 flex-1">
+              <label className={labelCls}>
+                First level label (optional — becomes L2)
+              </label>
+              <input
+                className={inputCls}
+                value={newLabel}
+                onChange={(e) => setNewLabel(e.target.value)}
+                placeholder="e.g. KETERANGAN"
+              />
+            </div>
+            <button
+              type="button"
+              onClick={() => void addAsset()}
+              disabled={busy}
+              className={btnPrimary}
+            >
+              {busy ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <Plus className="h-4 w-4" />
+              )}
+              Create asset
+            </button>
+            <button
+              type="button"
+              onClick={() => setAddOpen(false)}
+              className={btnSecondary}
+            >
+              Cancel
+            </button>
+          </div>
+        </Card>
+      )}
+
+      {fileName && (
+        <Card className="space-y-3 p-5">
+          <p className="text-sm font-semibold text-zinc-900">File: {fileName}</p>
+          {!plan ? (
+            <p className="text-sm text-zinc-500">Reading the sheet…</p>
+          ) : (
             <>
               <p className="text-sm text-zinc-600">
-                {flat.rows.length} price rows · {flat.pricedCount} priced ·{" "}
-                {flat.missingPriceCount} without a price.
+                Would add <strong>{plan.newAssets.length}</strong> asset(s),{" "}
+                <strong>{plan.newLevels.length}</strong> level(s) and{" "}
+                <strong>{plan.newOptions.length}</strong> option(s) —{" "}
+                <strong>{plan.skippedPaths}</strong> of {plan.sheetPaths} sheet row(s)
+                already exist and will be skipped.
               </p>
-              {flat.duplicates > 0 && (
-                <p className="rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-800">
-                  {flat.duplicates} duplicate L1–L5 row(s) in the sheet were merged.
+              {plan.touchedAssets.length > 0 && (
+                <p className="text-xs text-zinc-500">
+                  Assets in the sheet: {plan.touchedAssets.join(" · ")}
                 </p>
               )}
-              {flat.unknownAssets.length > 0 && (
-                <p className="rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-800">
-                  Not in the app structure (skipped): {flat.unknownAssets.join(", ")}.
-                  Run <code>npm run catalog:gen</code> and redeploy to add them.
-                </p>
+              {plan.priceUpdates.length > 0 && (
+                <label className="flex items-center gap-2 text-xs text-zinc-600">
+                  <input
+                    type="checkbox"
+                    checked={refreshPrices}
+                    onChange={(e) => setRefreshPrices(e.target.checked)}
+                    className="h-4 w-4 rounded border-zinc-300"
+                  />
+                  Also refresh the price of {plan.priceUpdates.length} existing row(s)
+                  (otherwise only new rows get prices)
+                </label>
               )}
-              {flat.newOptions.length > 0 && (
-                <p className="rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-800">
-                  {flat.newOptions.length} option value(s) are unknown to the app (prices
-                  still import, but inspectors cannot pick them yet):{" "}
-                  {flat.newOptions.slice(0, 5).join(" · ")}
-                  {flat.newOptions.length > 5 ? " …" : ""}
+              {plan.warnings.map((warning) => (
+                <p
+                  key={warning}
+                  className="rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-800"
+                >
+                  {warning}
                 </p>
-              )}
-              <p className="text-xs text-amber-700">
-                Importing replaces <strong>all</strong> stored prices (existing inspections
-                keep their own snapshot).
-              </p>
-              <button
-                type="button"
-                disabled={busy}
-                onClick={runImport}
-                className={btnPrimary}
-              >
-                {busy ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                ) : (
-                  <Upload className="h-4 w-4" />
-                )}
-                {busy ? "Importing…" : "Import now"}
-              </button>
+              ))}
+              <div className="flex flex-wrap gap-2">
+                <button
+                  type="button"
+                  onClick={() => void applyPlan()}
+                  disabled={busy || plan.newOptions.length === 0}
+                  className={btnPrimary}
+                >
+                  {busy ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <Upload className="h-4 w-4" />
+                  )}
+                  {busy ? "Importing…" : "Add missing rows"}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setPlan(null);
+                    setFileName("");
+                  }}
+                  className={btnSecondary}
+                >
+                  Cancel
+                </button>
+              </div>
             </>
           )}
         </Card>
       )}
-
-      <Card className="flex flex-wrap items-center gap-x-6 gap-y-2 p-5 text-sm">
-        <span className="text-zinc-500">
-          Stored prices:{" "}
-          <strong className="text-zinc-900">
-            {totalPriced}/{totalRows}
-          </strong>
-        </span>
-        <span className="text-zinc-500">
-          Without a price:{" "}
-          <strong className={totalRows - totalPriced > 0 ? "text-amber-700" : "text-zinc-900"}>
-            {totalRows - totalPriced}
-          </strong>{" "}
-          <span className="text-xs text-zinc-400">(inspectors type them or skip)</span>
-        </span>
-        {untracked > 0 && (
-          <span className="text-xs text-amber-700">
-            {untracked} stored row(s) belong to assets that are not in the structure.
-          </span>
-        )}
-      </Card>
-
       <div className="flex flex-wrap items-center gap-2">
         <input
           className={`${inputCls} max-w-xs`}
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          placeholder="Search asset, level value…"
+          placeholder="Search asset, level, value…"
         />
         <button
           type="button"
-          onClick={() => setOnlyMissing((v) => !v)}
-          className={`${btnSecondary} ${
-            onlyMissing ? "border-amber-400 bg-amber-50 text-amber-800" : ""
-          }`}
+          onClick={() => setOnlyMissing((value) => !value)}
+          className={cn(
+            btnSecondary,
+            onlyMissing && "border-amber-400 bg-amber-50 text-amber-800",
+          )}
         >
-          {onlyMissing ? "Showing rows without a price" : "Show only rows without a price"}
+          {onlyMissing
+            ? "Showing assets with missing prices"
+            : "Only assets with missing prices"}
         </button>
       </div>
 
-      {totalRows === 0 && (
+      {tree.assets.length === 0 ? (
         <Card className="p-6">
           <EmptyState
             icon={<Package className="h-8 w-8" />}
-            title="No prices stored yet"
-            hint="Press “Import Excel prices” and pick the Aset perabot jalan file. Until then inspectors type the price manually or skip it."
+            title="No assets yet"
+            hint="Add your first L1 asset (then its L2…L6 levels and values), or import the Aset perabot jalan sheet — the import only adds what is missing."
             action={
               <button
                 type="button"
-                onClick={() => fileRef.current?.click()}
+                onClick={() => setAddOpen(true)}
                 className={btnPrimary}
               >
-                <Upload className="h-4 w-4" /> Import Excel prices
+                <Plus className="h-4 w-4" /> Add asset
               </button>
             }
           />
         </Card>
+      ) : visibleAssets.length === 0 ? (
+        <Card className="p-5 text-sm text-zinc-500">
+          No asset matches the current search/filter.
+        </Card>
+      ) : (
+        visibleAssets.map((asset) => {
+          const cover = coverageOf(asset);
+          const open = expanded.includes(asset.id);
+          return (
+            <Card key={asset.id} className="overflow-hidden">
+              <button
+                type="button"
+                onClick={() => toggle(asset.id)}
+                className="flex w-full flex-wrap items-center justify-between gap-2 px-5 py-3 text-left transition-colors hover:bg-zinc-50"
+              >
+                <div className="min-w-0">
+                  <p className="flex items-center gap-2 text-sm font-bold text-zinc-900">
+                    <ChevronRight
+                      className={cn(
+                        "h-4 w-4 text-zinc-400 transition-transform",
+                        open && "rotate-90",
+                      )}
+                    />
+                    {asset.name}
+                    <span className="text-[11px] font-normal text-zinc-400">L1</span>
+                  </p>
+                  <p className="truncate text-xs text-zinc-500">
+                    {asset.levels
+                      .map((level) => `L${level.level_no} ${level.label}`)
+                      .join(" · ") || "No levels yet"}
+                  </p>
+                </div>
+                <div className="flex items-center gap-2 text-xs">
+                  <span className="rounded-full bg-zinc-100 px-2.5 py-1 text-zinc-600">
+                    {asset.options.length} option(s)
+                  </span>
+                  <span
+                    className={cn(
+                      "rounded-full px-2.5 py-1 font-semibold",
+                      cover.combinations > 0 && cover.priced === cover.combinations
+                        ? "bg-emerald-100 text-emerald-800"
+                        : "bg-amber-100 text-amber-800",
+                    )}
+                  >
+                    {cover.priced}/{cover.combinations} priced
+                  </span>
+                </div>
+              </button>
+              {open && (
+                <div className="border-t border-zinc-100 px-5 py-4">
+                  <AssetCatalogEditor asset={asset} mode="compact" />
+                </div>
+              )}
+            </Card>
+          );
+        })
       )}
 
-      {groups.map(({ asset, rows, priced }) => {
-        const levels = levelsOf(asset);
-        const visible = rows.filter((row) => {
-          if (onlyMissing && row.price !== null) return false;
-          if (!needle) return true;
-          return [asset.name, row.l2, row.l3, row.l4, row.l5]
-            .join(" ")
-            .toLowerCase()
-            .includes(needle);
-        });
-        if (visible.length === 0) return null;
-
-        return (
-          <Card key={asset.key} className="overflow-hidden">
-            <div className="flex flex-wrap items-center justify-between gap-2 border-b border-zinc-200 bg-zinc-50 px-5 py-3">
-              <div>
-                <p className="flex items-center gap-2 text-sm font-bold text-zinc-900">
-                  <Package className="h-4 w-4 text-amber-600" />
-                  {asset.name}
-                  <span className="text-xs font-normal text-zinc-400">{asset.key}</span>
-                </p>
-                <p className="text-xs text-zinc-500">
-                  {levels.map((l) => `L${l.level} ${l.label}`).join(" · ") || "—"}
-                </p>
-              </div>
-              <span
-                className={
-                  priced === rows.length
-                    ? "rounded-full bg-emerald-100 px-2.5 py-1 text-xs font-semibold text-emerald-800"
-                    : "rounded-full bg-amber-100 px-2.5 py-1 text-xs font-semibold text-amber-800"
-                }
-              >
-                {priced}/{rows.length} priced
-              </span>
-            </div>
-
-            <div className="overflow-x-auto">
-              <table className="w-full min-w-[680px] text-left text-sm">
-                <thead className="border-b border-zinc-200 text-xs font-semibold uppercase tracking-wide text-zinc-500">
-                  <tr>
-                    {levels.map((l) => (
-                      <th key={l.level} className="px-5 py-2">
-                        L{l.level} · {l.label}
-                      </th>
-                    ))}
-                    <th className="px-5 py-2">Price (L6)</th>
-                    <th className="px-5 py-2" />
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-zinc-100">
-                  {visible.map((row) => {
-                    const key = rowKey(row.asset_key, [row.l2, row.l3, row.l4, row.l5]);
-                    const value =
-                      edits[key] ?? (row.price === null ? "" : String(row.price));
-                    const dirty = edits[key] !== undefined;
-                    return (
-                      <tr key={key} className="hover:bg-zinc-50">
-                        {levels.map((l) => (
-                          <td key={l.level} className="px-5 py-2 text-zinc-700">
-                            {(l.level === 2
-                              ? row.l2
-                              : l.level === 3
-                                ? row.l3
-                                : l.level === 4
-                                  ? row.l4
-                                  : row.l5) || "—"}
-                          </td>
-                        ))}
-                        <td className="px-5 py-2">
-                          <input
-                            className="w-36 rounded-lg border border-zinc-300 px-2 py-1.5 text-sm"
-                            value={value}
-                            onChange={(e) =>
-                              setEdits((prev) => ({ ...prev, [key]: e.target.value }))
-                            }
-                            placeholder="no price"
-                            inputMode="decimal"
-                          />
-                          {row.raw_price && row.price === null ? (
-                            <span className="ml-2 text-xs text-zinc-400">
-                              {row.raw_price}
-                            </span>
-                          ) : null}
-                        </td>
-                        <td className="whitespace-nowrap px-5 py-2 text-right">
-                          {dirty ? (
-                            <button
-                              type="button"
-                              disabled={savingRow === key}
-                              onClick={() => void saveRow(row, key)}
-                              className="inline-flex items-center gap-1.5 rounded-lg bg-amber-500 px-3 py-1.5 text-xs font-bold text-zinc-950 disabled:opacity-60"
-                            >
-                              {savingRow === key ? (
-                                <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                              ) : (
-                                <Save className="h-3.5 w-3.5" />
-                              )}
-                              Save
-                            </button>
-                          ) : savedRow === key ? (
-                            <span className="inline-flex items-center gap-1 text-xs font-semibold text-emerald-600">
-                              <Check className="h-3.5 w-3.5" /> saved
-                            </span>
-                          ) : row.price === null ? (
-                            <span className="text-xs font-semibold text-amber-600">
-                              missing
-                            </span>
-                          ) : (
-                            <span className="text-xs text-zinc-400">
-                              {row.updated_at
-                                ? new Date(row.updated_at).toLocaleDateString()
-                                : ""}
-                            </span>
-                          )}
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
-          </Card>
-        );
-      })}
+      <p className="flex items-start gap-2 text-xs text-zinc-400">
+        <Layers className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+        The Excel import is a helper, not a reset: matching assets, levels and values
+        are left untouched, so re-importing the same sheet changes nothing.
+      </p>
     </div>
   );
 }
+

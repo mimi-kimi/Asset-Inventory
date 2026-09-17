@@ -11,9 +11,11 @@
  * Prices are always in column G and may be plain numbers or text such as
  * "RM45,000.00/TIANG"; blank means "no price" (the inspector may type one, else
  * the price is saved as skipped).
+ *
+ * `planCatalogMerge()` (lib/catalog-merge.ts) turns the parsed sheet into an
+ * insert-only plan: assets, levels and values that already exist in the catalog
+ * are skipped, so re-importing the same file never duplicates anything.
  */
-
-import { matchCatalogAsset } from "@/lib/catalog-data";
 
 export interface CatalogImportRow {
   l2: string | null;
@@ -130,7 +132,10 @@ export async function parseCatalogFile(
         rows: [],
       };
       if (columnLevels.length === 0) {
-        warnings.push(`Row ${i + 1}: "${first}" has no level labels (skipped).`);
+        /* the "L1..L6" strip above the first block is not an asset */
+        if (assets.length > 0) {
+          warnings.push(`Row ${i + 1}: "${first}" has no level labels (skipped).`);
+        }
         current = null;
         continue;
       }
@@ -181,91 +186,4 @@ export async function parseCatalogFile(
   }
 
   return { assets, warnings, sheetName };
-}
-
-/* ---------- flatten the parsed sheet into `catalog_prices` rows ---------- */
-
-export interface CatalogPriceImportRow {
-  asset_key: string;
-  l2: string;
-  l3: string;
-  l4: string;
-  l5: string;
-  price: number | null;
-  raw_price: string | null;
-}
-
-export interface FlatCatalogImport {
-  rows: CatalogPriceImportRow[];
-  /** asset names found in the sheet that lib/catalog-data.ts does not know */
-  unknownAssets: string[];
-  /** option values the hardcoded structure does not know (regenerate + commit) */
-  newOptions: string[];
-  /** duplicate L1..L5 combinations in the sheet (merged — a priced row wins) */
-  duplicates: number;
-  pricedCount: number;
-  missingPriceCount: number;
-}
-
-export function flattenToPriceRows(
-  result: CatalogImportResult,
-): FlatCatalogImport {
-  const byKey = new Map<string, CatalogPriceImportRow>();
-  const unknownAssets: string[] = [];
-  const newOptions: string[] = [];
-  let duplicates = 0;
-
-  for (const asset of result.assets) {
-    const def = matchCatalogAsset(asset.name);
-    if (!def) {
-      unknownAssets.push(asset.name);
-      continue;
-    }
-
-    for (const [level, values] of Object.entries(asset.options)) {
-      const known = def.options[Number(level) as 2 | 3 | 4 | 5] ?? [];
-      for (const value of values) {
-        if (!known.includes(value)) {
-          newOptions.push(`${def.name} · L${level} · ${value}`);
-        }
-      }
-    }
-
-    for (const row of asset.rows) {
-      const entry: CatalogPriceImportRow = {
-        asset_key: def.key,
-        l2: row.l2 ?? "",
-        l3: row.l3 ?? "",
-        l4: row.l4 ?? "",
-        l5: row.l5 ?? "",
-        price: row.price,
-        raw_price: row.rawPrice,
-      };
-      const key = [
-        entry.asset_key,
-        entry.l2,
-        entry.l3,
-        entry.l4,
-        entry.l5,
-      ].join("|");
-      const existing = byKey.get(key);
-      if (!existing) {
-        byKey.set(key, entry);
-      } else {
-        duplicates += 1;
-        /* keep whatever price we have — a filled row beats a blank one */
-        if (existing.price === null && entry.price !== null) byKey.set(key, entry);
-      }
-    }
-  }
-
-  const rows = [...byKey.values()];
-  return {
-    rows,
-    unknownAssets,
-    newOptions,
-    duplicates,
-    pricedCount: rows.filter((r) => r.price !== null).length,
-    missingPriceCount: rows.filter((r) => r.price === null).length,
-  };
 }

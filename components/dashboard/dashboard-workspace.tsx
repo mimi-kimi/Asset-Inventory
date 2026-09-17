@@ -10,7 +10,6 @@ import { Card } from "@/components/ui";
 import { MarkersMap, MarkerLegend } from "@/components/map/markers-map";
 import type { MapPoint } from "@/components/map/markers-map";
 import { createClient } from "@/lib/supabase/client";
-import { CATALOG_BY_KEY, matchCatalogAsset } from "@/lib/catalog-data";
 
 const ACTIVE_KEY = "rat-active-task";
 
@@ -78,7 +77,7 @@ export function DashboardWorkspace({
     drawerRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
   }, [selected]);
 
-  /* catalog level labels come from the hardcoded structure (lib/catalog-data) */
+  /* level values/labels in the drawer come from the inspection snapshot */
 
   /** fetch full marker detail (incl. latest inspection photo) on click */
   async function selectMarker(id: string) {
@@ -90,7 +89,7 @@ export function DashboardWorkspace({
       const { data } = await createClient()
         .from("assets")
         .select(
-          "*, inspections(id, functional, inspected_at, photo_webp, price, price_manual, catalog_asset_key, asset_category, l2, l3, l4, l5, other_description)",
+          "*, inspections(id, functional, inspected_at, photo_webp, price, price_manual, catalog_asset_id, catalog_path, asset_category, l2, l3, l4, l5, l6, other_description)",
         )
         .eq("id", id)
         .maybeSingle();
@@ -404,23 +403,27 @@ export function DashboardWorkspace({
                   </dd>
                 </div>
               )}
-              {([2, 3, 4, 5] as const).map((lvl) => {
-                const value = latestInspection?.[`l${lvl}` as "l2" | "l3" | "l4" | "l5"];
-                if (!value) return null;
-                const def = latestInspection?.catalog_asset_key
-                  ? CATALOG_BY_KEY[latestInspection.catalog_asset_key]
-                  : matchCatalogAsset(latestInspection?.asset_category);
-                const label = def?.labels[lvl];
-                return (
-                  <div key={lvl} className="flex justify-between gap-3">
-                    <dt className="text-xs font-semibold text-zinc-400">
-                      L{lvl}
-                      {label ? ` · ${label}` : ""}
-                    </dt>
-                    <dd className="text-right text-zinc-700">{value}</dd>
-                  </div>
-                );
-              })}
+              {(latestInspection?.catalog_path?.length ?? 0) > 0
+                ? latestInspection!.catalog_path!.map((step) => (
+                    <div key={step.level_no} className="flex justify-between gap-3">
+                      <dt className="text-xs font-semibold text-zinc-400">
+                        L{step.level_no}
+                        {step.label ? ` · ${step.label}` : ""}
+                      </dt>
+                      <dd className="text-right text-zinc-700">{step.value}</dd>
+                    </div>
+                  ))
+                : ([2, 3, 4, 5, 6] as const).map((lvl) => {
+                    const value =
+                      latestInspection?.[`l${lvl}` as "l2" | "l3" | "l4" | "l5" | "l6"];
+                    if (!value) return null;
+                    return (
+                      <div key={lvl} className="flex justify-between gap-3">
+                        <dt className="text-xs font-semibold text-zinc-400">L{lvl}</dt>
+                        <dd className="text-right text-zinc-700">{value}</dd>
+                      </div>
+                    );
+                  })}
               {latestInspection?.other_description && (
                 <div className="flex justify-between gap-3">
                   <dt className="text-xs font-semibold text-zinc-400">Lain-lain</dt>

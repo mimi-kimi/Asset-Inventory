@@ -1,19 +1,30 @@
 import type { Metadata } from "next";
 import { requireAdmin } from "@/lib/auth";
 import { describeError } from "@/lib/format";
-import { queryCatalogPrices } from "@/lib/queries";
+import { queryCatalog } from "@/lib/queries";
 import { CatalogManager } from "@/components/dashboard/catalog-manager";
 
 export const dynamic = "force-dynamic";
-export const metadata: Metadata = { title: "Price catalog" };
+export const metadata: Metadata = { title: "Asset catalog" };
 
-export default async function CatalogPage() {
+export default async function CatalogPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ asset?: string | string[] }>;
+}) {
   await requireAdmin();
 
+  const { asset } = await searchParams;
+  const initialAssetId = Array.isArray(asset) ? asset[0] ?? "" : asset ?? "";
+
   let dbError: string | null = null;
-  let prices: Awaited<ReturnType<typeof queryCatalogPrices>> = [];
+  let catalog: Awaited<ReturnType<typeof queryCatalog>> = {
+    assets: [],
+    levels: [],
+    options: [],
+  };
   try {
-    prices = await queryCatalogPrices();
+    catalog = await queryCatalog();
   } catch (err) {
     dbError = describeError(err);
   }
@@ -26,14 +37,15 @@ export default async function CatalogPage() {
         </p>
         <p className="text-red-700/80">
           Did you run <code className="rounded bg-red-100 px-1">supabase/migration_v5.sql</code>{" "}
-          in the Supabase SQL editor? That creates the{" "}
-          <code className="rounded bg-red-100 px-1">catalog_prices</code> table and the
-          L1–L6 columns on{" "}
-          <code className="rounded bg-red-100 px-1">inspections</code>.
+          in the Supabase SQL editor? It creates{" "}
+          <code className="rounded bg-red-100 px-1">catalog_assets</code>,{" "}
+          <code className="rounded bg-red-100 px-1">catalog_levels</code>,{" "}
+          <code className="rounded bg-red-100 px-1">catalog_options</code> and the L1–L6
+          columns on <code className="rounded bg-red-100 px-1">inspections</code>.
         </p>
       </div>
     );
   }
 
-  return <CatalogManager prices={prices} />;
+  return <CatalogManager catalog={catalog} initialAssetId={initialAssetId} />;
 }

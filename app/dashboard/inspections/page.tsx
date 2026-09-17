@@ -169,7 +169,7 @@ export default async function InspectionsPage({
                       {i.asset_category ?? "—"}
                     </p>
                     <p className="text-xs text-zinc-500">
-                      {[i.l2, i.l3, i.l4, i.l5].filter(Boolean).join(" · ") ||
+                      {[i.l2, i.l3, i.l4, i.l5, i.l6].filter(Boolean).join(" · ") ||
                         i.other_description ||
                         ""}
                     </p>

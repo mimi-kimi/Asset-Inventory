@@ -4,7 +4,10 @@ import { createClient } from "@/lib/supabase/server";
 import type {
   AssetRow,
   AssetType,
-  CatalogPrice,
+  CatalogAssetRow,
+  CatalogData,
+  CatalogLevelRow,
+  CatalogOptionRow,
   InspectionRow,
   TaskRow,
 } from "@/lib/types";
@@ -17,7 +20,7 @@ import type {
  * payload huge. Only the single-inspection query loads them.
  */
 const INSPECTION_LIST_COLUMNS =
-  "id, asset_id, inspector_id, inspected_at, condition, functional, remarks, created_at, catalog_asset_key, asset_category, l2, l3, l4, l5, price, price_manual, other_description, assets(id, code, seq_no, inventory_id, location, lat, lng, asset_types(id, code, name, icon)), inspection_photos(id, inspection_id, photo_url)";
+  "id, asset_id, inspector_id, inspected_at, condition, functional, remarks, created_at, catalog_asset_id, asset_category, catalog_path, l2, l3, l4, l5, l6, price, price_manual, other_description, assets(id, code, seq_no, inventory_id, location, lat, lng, asset_types(id, code, name, icon)), inspection_photos(id, inspection_id, photo_url)";
 
 export async function queryAssets(): Promise<AssetRow[]> {
   const supabase = await createClient();
@@ -146,7 +149,7 @@ export async function queryTaskAssets(): Promise<AssetRow[]> {
   const { data, error } = await supabase
     .from("assets")
     .select(
-      "*, tasks(id, name), inspections(id, functional, inspected_at, price, price_manual, catalog_asset_key, asset_category, l2, l3, l4, l5, other_description)",
+      "*, tasks(id, name), inspections(id, functional, inspected_at, price, price_manual, catalog_asset_id, asset_category, catalog_path, l2, l3, l4, l5, l6, other_description)",
     )
     .not("task_id", "is", null)
     .order("created_at", { ascending: false })
@@ -179,13 +182,49 @@ export async function queryAssetWithInspectionsById(
   return (data as AssetRow | null) ?? null;
 }
 
-/** Every price row of the catalog (structure is hardcoded in lib/catalog-data). */
-export async function queryCatalogPrices(): Promise<CatalogPrice[]> {
+/** The whole catalog (assets → levels → options) with their prices. */
+export async function queryCatalog(): Promise<CatalogData> {
   const supabase = await createClient();
-  const { data, error } = await supabase
-    .from("catalog_prices")
-    .select("id, asset_key, l2, l3, l4, l5, price, raw_price, updated_at")
-    .order("asset_key");
+  const [assets, levels, options] = await Promise.all([
+    supabase.from("catalog_assets").select("id, name, sort_order, created_at").order("sort_order"),
+    supabase.from("catalog_levels").select("id, asset_id, level_no, label"),
+    supabase
+      .from("catalog_options")
+      .select("id, asset_id, level_no, parent_id, value, price, raw_price, sort_order"),
+  ]);
+  if (assets.error) throw assets.error;
+  if (levels.error) throw levels.error;
+  if (options.error) throw options.error;
+  return {
+    assets: (assets.data ?? []) as CatalogAssetRow[],
+    levels: (levels.data ?? []) as CatalogLevelRow[],
+    options: (options.data ?? []) as CatalogOptionRow[],
+  };
+}
+
+/** One asset's branch of the catalog (used by the asset editor page). */
+export async function queryCatalogAsset(id: string): Promise<CatalogData> {
+  const supabase = await createClient();
+  const { data: asset, error } = await supabase
+    .from("catalog_assets")
+    .select("id, name, sort_order, created_at")
+    .eq("id", id)
+    .maybeSingle();
   if (error) throw error;
-  return (data ?? []) as CatalogPrice[];
+  if (!asset) return { assets: [], levels: [], options: [] };
+
+  const [levels, options] = await Promise.all([
+    supabase.from("catalog_levels").select("id, asset_id, level_no, label").eq("asset_id", id),
+    supabase
+      .from("catalog_options")
+      .select("id, asset_id, level_no, parent_id, value, price, raw_price, sort_order")
+      .eq("asset_id", id),
+  ]);
+  if (levels.error) throw levels.error;
+  if (options.error) throw options.error;
+  return {
+    assets: [asset as CatalogAssetRow],
+    levels: (levels.data ?? []) as CatalogLevelRow[],
+    options: (options.data ?? []) as CatalogOptionRow[],
+  };
 }

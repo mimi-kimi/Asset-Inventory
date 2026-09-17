@@ -2,6 +2,7 @@ import type { ReactNode } from "react";
 import Link from "next/link";
 import { MonitorSmartphone } from "lucide-react";
 import { requireViewer } from "@/lib/auth";
+import { AutoRefresh } from "@/components/auto-refresh";
 import { MobileNav } from "@/components/mobile/mobile-nav";
 
 export const dynamic = "force-dynamic";
@@ -16,6 +17,10 @@ export default async function MobileLayout({
   return (
     <div className="min-h-dvh bg-zinc-200">
       <div className="relative mx-auto min-h-dvh w-full max-w-lg bg-zinc-100 shadow-2xl">
+        {/* keep the map/lists in step with the other accounts (a longer gap on
+            the phone: the map payload is the biggest in the app); never while
+            an inspection form is open (it holds unsaved input) */}
+        <AutoRefresh seconds={60} skip={["/mobile/record/upsert"]} />
         <div className="sticky top-0 z-40 flex items-center justify-between border-b border-zinc-200 bg-white px-4 py-2.5">
           <Link href="/mobile" className="flex min-w-0 items-center gap-2">
             <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-amber-500 text-sm text-zinc-950">

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import L from "leaflet";
 import { MapContainer, Marker, TileLayer, Tooltip } from "react-leaflet";
 import "leaflet/dist/leaflet.css";
@@ -53,12 +53,18 @@ export function MarkersMap({
     setReady(true);
   }, []);
 
-  // zoom to the current data whenever the fit signal changes
+  // zoom to the current data whenever the fit signal changes — and when the set
+  // of markers itself changes, but NOT on a plain data refresh (auto-refresh),
+  // so the user's pan/zoom is left alone
+  const fitKey = `${fitSignal}|${points.map((p) => p.id).join(",")}`;
+  const lastFit = useRef("");
   useEffect(() => {
     if (!map || points.length === 0) return;
+    if (lastFit.current === fitKey) return;
+    lastFit.current = fitKey;
     const bounds = L.latLngBounds(points.map((p) => [p.lat, p.lng] as [number, number]));
     map.fitBounds(bounds, { padding: [40, 40], maxZoom: 16 });
-  }, [fitSignal, map, points]);
+  }, [fitKey, map, points]);
 
   if (!ready) {
     return (

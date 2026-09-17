@@ -1,20 +1,22 @@
 import type { Metadata } from "next";
 import { requireViewer } from "@/lib/auth";
 import { describeError } from "@/lib/format";
-import { queryTaskAssets, queryTasks } from "@/lib/queries";
+import { queryTaskAssets, queryTasks, fetchInspectorNames } from "@/lib/queries";
 import { MobileMapScreen } from "@/components/mobile/mobile-map-screen";
 
 export const dynamic = "force-dynamic";
 export const metadata: Metadata = { title: "Map" };
 
 export default async function MobileHomePage() {
-  await requireViewer();
+  const viewer = await requireViewer();
 
   let dbError: string | null = null;
   let tasks: Awaited<ReturnType<typeof queryTasks>> = [];
   let assets: Awaited<ReturnType<typeof queryTaskAssets>> = [];
+  let inspectorNames: Record<string, string | null> = {};
   try {
     [tasks, assets] = await Promise.all([queryTasks(), queryTaskAssets()]);
+    inspectorNames = Object.fromEntries(await fetchInspectorNames());
   } catch (err) {
     dbError = describeError(err);
   }
@@ -27,5 +29,13 @@ export default async function MobileHomePage() {
     );
   }
 
-  return <MobileMapScreen tasks={tasks} assets={assets} />;
+  return (
+    <MobileMapScreen
+      tasks={tasks}
+      assets={assets}
+      meId={viewer.user.id}
+      isAdmin={viewer.profile.role === "ADMIN"}
+      inspectorNames={inspectorNames}
+    />
+  );
 }

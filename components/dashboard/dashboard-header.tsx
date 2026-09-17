@@ -30,7 +30,8 @@ const MANAGE_LINKS: Array<{
   { href: "/dashboard/inspections", label: "Inspections", icon: ClipboardList },
   { href: "/dashboard/catalog", label: "Catalog", icon: Package, adminOnly: true },
   { href: "/dashboard/users", label: "Users", icon: Users, adminOnly: true },
-  { href: "/account", label: "My account", icon: UserCog },
+  /* inspectors have no account area — an admin manages their account */
+  { href: "/account", label: "My account", icon: UserCog, adminOnly: true },
 ];
 
 export function DashboardHeader({

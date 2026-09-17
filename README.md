@@ -28,6 +28,10 @@ lights, stop lights, road lamps and more.
 - **Asset catalog** (`/dashboard/catalog`, admin): manage each asset, give it the named levels it needs (`KETERANGAN · ARM · WATT · TIANG`, or just `AMP` for a feeder pillar), edit the values and the price of each combination; importing the *Aset perabot jalan* sheet is a helper that only adds what is missing
 - **Desktop header “Mobile” button** opens the inspector app; mobile users get
   back to the dashboard from *Profile → Open desktop dashboard*
+- **One shared inventory** — every signed-in account sees the same markers, reports
+  and photos (the mobile *Records* tab is the team feed, and the exports/prices
+  match for everyone); pages re-fetch on their own (30 s desktop, 60 s phone) so an
+  inspection recorded on a phone shows up on the dashboard without a reload
 - Row Level Security on every table; inspection photos are downscaled WebP files in a public Supabase Storage bucket, and the row keeps the public URL
 
 ## Project layout
@@ -52,8 +56,9 @@ supabase/schema.sql   one-time database setup
    `supabase/migration_v5.sql` (asset catalog + inspection snapshot columns),
    `supabase/migration_v6.sql` (photo bucket + photo_url/photo_path),
    `supabase/migration_v7.sql` (retire the old asset types),
-   `supabase/migration_v8.sql` (condition = Good / Fair / Bad) and
-   `supabase/migration_v9.sql` (only admins may change roles / active flags).
+   `supabase/migration_v8.sql` (condition = Good / Fair / Bad),
+   `supabase/migration_v9.sql` (only admins may change roles / active flags) and
+   `supabase/migration_v10.sql` (one shared field inventory).
    A sample import file lives at `public/sample-task.csv`.
 3. **Disable self sign-up** — Supabase → *Authentication → Providers → Email* →
    turn **off** "Allow new users to sign up". Accounts are created by admins only.
@@ -90,6 +95,24 @@ supabase/schema.sql   one-time database setup
 - **INSPECTOR** lands on `/mobile` — record inspections from a phone; can also
   open the dashboard read-only.
 
+### Shared data — who sees and edits what
+
+| Data | Seen by | Changed by |
+| --- | --- | --- |
+| Markers / tasks / catalog | every signed-in account | admins; an inspector may set the ID-Inventory, category and status of the marker being inspected |
+| Reports (`inspections`) + photos | every signed-in account | the inspector who recorded it, or an admin |
+| Prices / totals | every signed-in account | computed from the catalog (a typed price belongs to its report) |
+| Users & roles | admins | admins (`migration_v9` blocks self-promotion) |
+
+`supabase/migration_v10.sql` is what makes the *reading* shared, so an
+inspector's map, the *Records* feed, the CSV exports and the dashboard all show
+the same work. Every page re-fetches by itself — every 30 s on the dashboard,
+60 s on the phone (plus whenever the tab regains focus), never while an
+inspection form is open — so a report recorded on one phone appears on the others
+without a reload. When a marker was already reported by somebody else, the app
+offers **Add a new report** (pre-filled from theirs) instead of editing their
+report.
+
 ## User management
 
 Sign-in is **username + password** (no email needed). Behind the scenes the app
@@ -117,9 +140,12 @@ select username, full_name, role, active, email, must_change_password
 from public.profiles order by role desc, username;
 ```
 
-- Users sign in and can change their own **name and password** at `/account`
-  (also linked from the mobile Profile tab). If `must_change_password` is set,
-  they are redirected there right after signing in.
+- **Inspectors have no account area**: names, usernames, roles and passwords are
+  managed by an admin on the *Users* page. The one exception is a temporary
+  password — if the admin ticked "must change password", the inspector lands on
+  `/account` once to pick their own, and the page closes behind them afterwards.
+  Admins keep **My account** (name + password) in the dashboard nav and on the
+  mobile Profile tab.
 - Deleting a user is blocked when they already have inspection records —
   **deactivate** them instead (they can no longer sign in).
 
@@ -304,7 +330,9 @@ https://<project>.supabase.co/storage/v1/object/public/tree-photos/sitechecker1/
   gone — the catalog page manages the categories/values and the mobile app
   records the inspections (run `supabase/migration_v7.sql` to retire the old
   `asset_types` table).
-- Role management is via SQL (no admin UI yet).
+- Role management is via the **Users** page (create an admin, or promote/demote
+  with the shield button); `migration_v9.sql` stops anyone from promoting
+  themselves through the API.
 - The catalog lives in Supabase: build it in the app or import the sheet once —
   the phone form needs a connection to read it (prices fall back to "skipped"
   if the fetch fails).

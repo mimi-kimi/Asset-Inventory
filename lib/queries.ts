@@ -49,21 +49,6 @@ export async function queryInspectionById(
   return (data as InspectionRow | null) ?? null;
 }
 
-export async function queryMyInspections(
-  inspectorId: string,
-  limit = 50,
-): Promise<InspectionRow[]> {
-  const supabase = await createClient();
-  const { data, error } = await supabase
-    .from("inspections")
-    .select(INSPECTION_LIST_COLUMNS)
-    .eq("inspector_id", inspectorId)
-    .order("inspected_at", { ascending: false })
-    .limit(limit);
-  if (error) throw error;
-  return (data ?? []) as unknown as InspectionRow[];
-}
-
 export async function countInspectors(): Promise<number> {
   const supabase = await createClient();
   const { count, error } = await supabase

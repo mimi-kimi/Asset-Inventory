@@ -3,7 +3,7 @@ import Link from "next/link";
 import { ArrowRight, MapPin } from "lucide-react";
 import { requireViewer } from "@/lib/auth";
 import { describeError, fmtDateTime } from "@/lib/format";
-import { queryMyInspections } from "@/lib/queries";
+import { queryInspections, fetchInspectorNames } from "@/lib/queries";
 import { EmptyState, Badge } from "@/components/ui";
 import { conditionMeta } from "@/lib/format";
 
@@ -14,19 +14,27 @@ export default async function MobileRecordPage() {
   const viewer = await requireViewer();
 
   let dbError: string | null = null;
-  let records: Awaited<ReturnType<typeof queryMyInspections>> = [];
+  let records: Awaited<ReturnType<typeof queryInspections>> = [];
+  let names: Record<string, string | null> = {};
   try {
-    records = await queryMyInspections(viewer.user.id, 40);
+    [records, names] = await Promise.all([
+      queryInspections(40),
+      fetchInspectorNames().then((map) => Object.fromEntries(map)),
+    ]);
   } catch (err) {
     dbError = describeError(err);
   }
+
+  const meId = viewer.user.id;
 
   return (
     <div className="space-y-3 px-4 pt-4">
       <div className="flex items-end justify-between gap-2">
         <div>
           <h1 className="text-xl font-bold text-zinc-900">Records</h1>
-          <p className="text-sm text-zinc-500">Your latest inspection reports.</p>
+          <p className="text-sm text-zinc-500">
+            Latest reports from the whole team.
+          </p>
         </div>
         <Link
           href="/mobile"
@@ -50,12 +58,14 @@ export default async function MobileRecordPage() {
       {records.length === 0 && !dbError ? (
         <EmptyState
           title="Nothing recorded yet"
-          hint="Once you inspect markers, your reports will be listed here."
+          hint="Reports recorded by any account will be listed here."
         />
       ) : (
         <ul className="space-y-2">
           {records.map((i) => {
             const meta = conditionMeta(i.condition);
+            const mine = i.inspector_id === meId;
+            const who = mine ? "You" : (names[i.inspector_id] ?? "Another user");
             return (
               <li key={i.id}>
                 <Link
@@ -81,8 +91,8 @@ export default async function MobileRecordPage() {
                       {i.assets?.location ??
                         (i.assets?.seq_no ? `No. ${i.assets.seq_no}` : "No location")}
                     </p>
-                    <p className="text-xs text-zinc-400">
-                      {fmtDateTime(i.inspected_at)}
+                    <p className="truncate text-xs text-zinc-400">
+                      {who} · {fmtDateTime(i.inspected_at)}
                     </p>
                   </div>
                   {i.functional ? (

@@ -13,6 +13,10 @@ import { createClient } from "@/lib/supabase/client";
 
 const ACTIVE_KEY = "rat-active-task";
 
+/** columns the marker drawer needs (latest inspection incl. its photo) */
+const DRAWER_COLUMNS =
+  "*, inspections(id, functional, inspected_at, photo_url, photo_path, photo_webp, price, price_manual, catalog_asset_id, catalog_path, asset_category, l2, l3, l4, l5, l6, other_description)";
+
 function formatPrice(n: number): string {
   return new Intl.NumberFormat(undefined, {
     maximumFractionDigits: 2,
@@ -88,9 +92,7 @@ export function DashboardWorkspace({
     try {
       const { data } = await createClient()
         .from("assets")
-        .select(
-          "*, inspections(id, functional, inspected_at, photo_url, photo_path, photo_webp, price, price_manual, catalog_asset_id, catalog_path, asset_category, l2, l3, l4, l5, l6, other_description)",
-        )
+        .select(DRAWER_COLUMNS)
         .eq("id", id)
         .maybeSingle();
       if (data) {
@@ -102,6 +104,32 @@ export function DashboardWorkspace({
       setLoadingDetail(false);
     }
   }
+
+  /**
+   * With the drawer open, follow the refreshed data: another account's report
+   * arrives via the page's auto-refresh, so pull the selected marker again.
+   */
+  useEffect(() => {
+    if (!selected) return;
+    const id = selected.id;
+    let alive = true;
+    (async () => {
+      try {
+        const { data } = await createClient()
+          .from("assets")
+          .select(DRAWER_COLUMNS)
+          .eq("id", id)
+          .maybeSingle();
+        if (alive && data) setSelected(data as AssetRow);
+      } catch {
+        /* the drawer keeps what it already shows */
+      }
+    })();
+    return () => {
+      alive = false;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [assets]);
 
   function chooseTask(id: string | "all") {
     setActiveTaskId(id);

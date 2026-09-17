@@ -3,9 +3,10 @@
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { ChevronDown, Layers, X } from "lucide-react";
-import { cn } from "@/lib/format";
+import { cn, fmtDateTime } from "@/lib/format";
 import { MARKER_META, markerState } from "@/lib/marker";
 import { latestInspection } from "@/lib/inspection-export";
+import { canEditInspection } from "@/lib/roles";
 import type { AssetRow, TaskRow } from "@/lib/types";
 import { MarkersMap, MarkerLegend } from "@/components/map/markers-map";
 import type { MapPoint } from "@/components/map/markers-map";
@@ -15,9 +16,16 @@ const ACTIVE_KEY = "rat-active-task";
 export function MobileMapScreen({
   tasks,
   assets,
+  meId,
+  isAdmin,
+  inspectorNames,
 }: {
   tasks: TaskRow[];
   assets: AssetRow[];
+  /** the signed-in user — reports by other people are read-only here */
+  meId: string;
+  isAdmin: boolean;
+  inspectorNames: Record<string, string | null>;
 }) {
   const [activeTaskId, setActiveTaskId] = useState<string>(() => {
     if (typeof window === "undefined") return tasks[0]?.id ?? "";
@@ -37,6 +45,24 @@ export function MobileMapScreen({
 
   /** newest report of the tapped marker — the drawer edits that one */
   const selectedReport = selected ? latestInspection(selected) : null;
+  /* everyone can see every report, but a report belongs to its author */
+  const reportAuthorId = selectedReport?.inspector_id ?? "";
+  const reportMine = Boolean(selectedReport) && reportAuthorId === meId;
+  const reportAuthor = selectedReport
+    ? reportMine
+      ? "you"
+      : reportAuthorId
+        ? (inspectorNames[reportAuthorId] ?? "another user")
+        : "another user"
+    : null;
+  const canEditReport = Boolean(
+    selectedReport &&
+      canEditInspection({
+        inspectorId: reportAuthorId,
+        meId,
+        isAdmin,
+      }),
+  );
 
   const visibleAssets = useMemo(
     () => (activeTask ? assets.filter((a) => a.task_id === activeTask.id) : []),
@@ -195,6 +221,17 @@ export function MobileMapScreen({
                     </span>
                   </dd>
                 </div>
+                {selectedReport && (
+                  <div className="col-span-2">
+                    <dt className="text-[10px] font-semibold uppercase tracking-wide text-zinc-400">
+                      Last report
+                    </dt>
+                    <dd className="text-zinc-700">
+                      {reportAuthor === "you" ? "Yours" : `By ${reportAuthor}`} ·{" "}
+                      {fmtDateTime(selectedReport.inspected_at)}
+                    </dd>
+                  </div>
+                )}
               </dl>
               {selected.notes && (
                 <p className="mt-2 line-clamp-2 border-t border-zinc-100 pt-2 text-xs text-zinc-500">
@@ -202,10 +239,16 @@ export function MobileMapScreen({
                   {selected.notes}
                 </p>
               )}
-              {selectedReport ? (
+              {selectedReport && !canEditReport && (
+                <p className="mt-3 rounded-xl bg-zinc-100 px-3 py-2 text-xs text-zinc-600">
+                  Reported by {reportAuthor}. Only {reportAuthor === "you" ? "you" : "they"}{" "}
+                  (or an admin) can change that report — add a new one instead.
+                </p>
+              )}
+              {canEditReport ? (
                 <>
                   <Link
-                    href={`/mobile/record/upsert?inspection=${selectedReport.id}`}
+                    href={`/mobile/record/upsert?inspection=${selectedReport!.id}`}
                     className="mt-3 flex w-full items-center justify-center rounded-xl bg-amber-500 px-5 py-3 text-sm font-bold text-zinc-950 active:scale-[0.99]"
                   >
                     Edit this report
@@ -217,6 +260,13 @@ export function MobileMapScreen({
                     Add a new report
                   </Link>
                 </>
+              ) : selectedReport ? (
+                <Link
+                  href={`/mobile/record/upsert?asset=${selected.id}`}
+                  className="mt-2 flex w-full items-center justify-center rounded-xl bg-amber-500 px-5 py-3 text-sm font-bold text-zinc-950 active:scale-[0.99]"
+                >
+                  Add a new report
+                </Link>
               ) : (
                 <Link
                   href={`/mobile/record/upsert?asset=${selected.id}`}

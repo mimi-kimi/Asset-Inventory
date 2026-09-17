@@ -40,13 +40,16 @@ export default async function MobileProfilePage() {
       </Card>
 
       <Card className="divide-y divide-zinc-100">
-        <Link
-          href="/account"
-          className="flex items-center gap-3 px-5 py-4 text-sm font-semibold text-zinc-700 hover:bg-zinc-50"
-        >
-          <MonitorSmartphone className="h-5 w-5 text-zinc-400" />
-          Edit profile &amp; password
-        </Link>
+        {/* inspectors have no account area — an admin manages their account */}
+        {isAdmin && (
+          <Link
+            href="/account"
+            className="flex items-center gap-3 px-5 py-4 text-sm font-semibold text-zinc-700 hover:bg-zinc-50"
+          >
+            <MonitorSmartphone className="h-5 w-5 text-zinc-400" />
+            Edit profile &amp; password
+          </Link>
+        )}
         {isAdmin && (
           <Link
             href="/dashboard/users"

@@ -23,6 +23,7 @@ export function AccountForm({
 }) {
   const router = useRouter();
   const supabase = createClient();
+  const isAdmin = role === "ADMIN";
 
   const [name, setName] = useState(fullName ?? "");
   const [nameBusy, setNameBusy] = useState(false);
@@ -112,7 +113,8 @@ export function AccountForm({
     <div className="space-y-4">
       {mustChange && (
         <p className="rounded-xl border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-900">
-          🔐 Please choose a new password before continuing.
+          🔐 An administrator gave you a temporary password — please choose your own
+          to continue.
         </p>
       )}
 
@@ -134,39 +136,42 @@ export function AccountForm({
         </div>
       </Card>
 
-      <Card className="p-5">
-        <form onSubmit={saveName} className="space-y-3">
-          <h2 className="text-sm font-bold text-zinc-900">Your details</h2>
-          <div>
-            <label className={labelCls} htmlFor="acc-name">
-              Full name
-            </label>
-            <input
-              id="acc-name"
-              className={inputCls}
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              placeholder="Juan Dela Cruz"
-            />
-          </div>
-          <p className="text-xs text-zinc-500">
-            Username changes are handled by an administrator.
-          </p>
-          {nameMsg && (
-            <p className="flex items-center gap-1.5 text-sm text-emerald-700">
-              <CheckCircle2 className="h-4 w-4" /> {nameMsg}
+      {/* inspectors have no account area: the name stays with the admin */}
+      {isAdmin && (
+        <Card className="p-5">
+          <form onSubmit={saveName} className="space-y-3">
+            <h2 className="text-sm font-bold text-zinc-900">Your details</h2>
+            <div>
+              <label className={labelCls} htmlFor="acc-name">
+                Full name
+              </label>
+              <input
+                id="acc-name"
+                className={inputCls}
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                placeholder="Juan Dela Cruz"
+              />
+            </div>
+            <p className="text-xs text-zinc-500">
+              Username changes are handled by an administrator.
             </p>
-          )}
-          <button type="submit" disabled={nameBusy} className={btnPrimary}>
-            {nameBusy ? (
-              <Loader2 className="h-4 w-4 animate-spin" />
-            ) : (
-              <Save className="h-4 w-4" />
+            {nameMsg && (
+              <p className="flex items-center gap-1.5 text-sm text-emerald-700">
+                <CheckCircle2 className="h-4 w-4" /> {nameMsg}
+              </p>
             )}
-            Save name
-          </button>
-        </form>
-      </Card>
+            <button type="submit" disabled={nameBusy} className={btnPrimary}>
+              {nameBusy ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <Save className="h-4 w-4" />
+              )}
+              Save name
+            </button>
+          </form>
+        </Card>
+      )}
 
       <Card className="p-5">
         <form onSubmit={changePassword} className="space-y-3">

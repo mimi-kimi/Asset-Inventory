@@ -46,12 +46,18 @@ export function RecordForm({
   asset,
   inspection,
   previous,
+  previousBy,
+  canEditSeed = true,
   username,
 }: {
   asset: AssetRow | null;
   inspection: InspectionRow | null;
-  /** the marker's last report — seeds a re-inspection without touching that row */
+  /** a report to pre-fill from (the marker's last one, whoever wrote it) */
   previous?: InspectionRow | null;
+  /** display name of that report's author, when it is not the signed-in user */
+  previousBy?: string | null;
+  /** false when that report belongs to someone else — it can only be seeded */
+  canEditSeed?: boolean;
   username?: string | null;
 }) {
   const router = useRouter();
@@ -429,7 +435,7 @@ export function RecordForm({
         </p>
         {!isEdit && previous && (
           <p className="mt-2 text-xs text-zinc-400">
-            Your earlier report from {fmtDateTime(previous.inspected_at)} is still in the history.
+            The earlier report from {fmtDateTime(previous.inspected_at)} is still in the history.
           </p>
         )}
         <div className="mt-6 flex flex-col gap-2">
@@ -454,20 +460,29 @@ export function RecordForm({
         <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-xs leading-relaxed text-amber-900">
           {isEdit ? (
             <>
-              <strong>Editing your report</strong> from {fmtDateTime(seed.inspected_at)}. Change only
-              what is different, then press <strong>Save changes</strong>.
+              <strong>
+                {previousBy ? `Editing the report by ${previousBy}` : "Editing your report"}
+              </strong>{" "}
+              from {fmtDateTime(seed.inspected_at)}. Change only what is different, then press{" "}
+              <strong>Save changes</strong>.
             </>
           ) : (
             <>
-              <strong>Pre-filled from your last report</strong> (
-              {fmtDateTime(seed.inspected_at)}). Change only what is different, then press{" "}
+              <strong>
+                {previousBy
+                  ? `Pre-filled from ${previousBy}'s report`
+                  : "Pre-filled from your last report"}
+              </strong>{" "}
+              ({fmtDateTime(seed.inspected_at)}). Change only what is different, then press{" "}
               <strong>Save record</strong>.{" "}
-              <Link
-                href={`/mobile/record/upsert?inspection=${seed.id}`}
-                className="font-bold underline"
-              >
-                Update that report instead
-              </Link>
+              {canEditSeed && (
+                <Link
+                  href={`/mobile/record/upsert?inspection=${seed.id}`}
+                  className="font-bold underline"
+                >
+                  Update that report instead
+                </Link>
+              )}
             </>
           )}{" "}
           {step < STEPS.length - 1 && (

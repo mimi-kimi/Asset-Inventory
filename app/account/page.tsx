@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import { requireViewer } from "@/lib/auth";
 import { AccountForm } from "@/components/account/account-form";
 
@@ -8,6 +9,12 @@ export const metadata: Metadata = { title: "My account" };
 
 export default async function AccountPage() {
   const viewer = await requireViewer();
+  const isAdmin = viewer.profile.role === "ADMIN";
+
+  /* Inspectors have no account area (an admin manages their name, role and
+     password). The single exception is the temporary password an admin issued:
+     `must_change_password` sends them here once, to pick their own. */
+  if (!isAdmin && !viewer.profile.must_change_password) redirect("/mobile");
 
   return (
     <main className="min-h-dvh bg-zinc-100 py-8">
@@ -20,10 +27,10 @@ export default async function AccountPage() {
             <span className="font-bold text-zinc-900">Road Asset Tracker</span>
           </Link>
           <Link
-            href="/dashboard"
+            href={isAdmin ? "/dashboard" : "/mobile"}
             className="text-sm font-semibold text-zinc-500 hover:text-zinc-800"
           >
-            Dashboard
+            {isAdmin ? "Dashboard" : "Mobile app"}
           </Link>
         </div>
 

@@ -32,6 +32,8 @@ export interface CatalogAssetRow {
   id: string;
   name: string;
   sort_order: number;
+  /** heading of the price column, e.g. "HARGA" (defaults to "HARGA" in the UI) */
+  price_label?: string | null;
   created_at?: string;
 }
 
@@ -45,8 +47,8 @@ export interface CatalogLevelRow {
 
 /**
  * One selectable value. Options form a tree: `parent_id` is the option chosen at
- * the level above (null for L2). A price on a node applies to everything under
- * it; the deepest non-null price on the picked path wins.
+ * the level above (null for the first level). The price is only meaningful on a
+ * leaf (a value with no children) — that node is one full combination.
  */
 export interface CatalogOptionRow {
   id: string;

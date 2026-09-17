@@ -111,14 +111,18 @@ export function deepestLevel(asset: CatalogAssetTree): number {
   );
 }
 
-/** The level number the price is displayed as (one after the deepest). */
-export function priceLevelNo(asset: CatalogAssetTree): number {
-  return deepestLevel(asset) + 1;
-}
-
 /** Next level to create when the admin presses "Add level". */
 export function nextLevelNo(asset: CatalogAssetTree): number {
   return Math.min(MAX_LEVEL, deepestLevel(asset) + 1);
+}
+
+/** Values that end a combination (they have no children of their own). */
+export function leafOptions(asset: CatalogAssetTree): CatalogOptionRow[] {
+  return asset.options.filter((option) => childrenOf(asset, option.id).length === 0);
+}
+
+export function isLeaf(asset: CatalogAssetTree, option: CatalogOptionRow): boolean {
+  return childrenOf(asset, option.id).length === 0;
 }
 
 /** Root → node chain of an option (includes the option itself). */
@@ -139,7 +143,7 @@ export function pathOf(
   return chain;
 }
 
-/** Deepest non-null price along a root → leaf chain (prices are inherited). */
+/** Deepest non-null price along a root → leaf chain (kept for older records). */
 export function priceOfPath(nodes: CatalogOptionRow[]): {
   price: number | null;
   node: CatalogOptionRow | null;
@@ -154,6 +158,16 @@ export function priceOfPath(nodes: CatalogOptionRow[]): {
     }
   }
   return { price, node, raw: node?.raw_price ?? null };
+}
+
+/** The price of a picked combination — it lives on the last value (L6). */
+export function leafPrice(node: CatalogOptionRow | null | undefined): number | null {
+  return node && node.price !== null && node.price !== undefined ? node.price : null;
+}
+
+/** Heading of the price column for an asset ("HARGA" by default). */
+export function priceHeading(asset: { price_label?: string | null }): string {
+  return (asset.price_label ?? "").trim() || "HARGA";
 }
 
 /** The picked chain (level number → option id), dropping ids that don't chain. */
@@ -187,7 +201,7 @@ export function pathSteps(
   }));
 }
 
-/** Every root → leaf combination of an asset, with its inherited price. */
+/** Every root → leaf combination of an asset, with its price. */
 export function combinations(
   asset: CatalogAssetTree,
 ): { nodes: CatalogOptionRow[]; price: number | null }[] {
@@ -196,7 +210,9 @@ export function combinations(
   const walk = (parentId: string | null, path: CatalogOptionRow[]) => {
     const children = childrenOf(asset, parentId);
     if (children.length === 0) {
-      if (path.length > 0) out.push({ nodes: path, price: priceOfPath(path).price });
+      if (path.length > 0) {
+        out.push({ nodes: path, price: leafPrice(path[path.length - 1]) });
+      }
       return;
     }
     for (const child of children) walk(child.id, [...path, child]);

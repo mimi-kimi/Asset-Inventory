@@ -407,8 +407,7 @@ export function DashboardWorkspace({
                 ? latestInspection!.catalog_path!.map((step) => (
                     <div key={step.level_no} className="flex justify-between gap-3">
                       <dt className="text-xs font-semibold text-zinc-400">
-                        L{step.level_no}
-                        {step.label ? ` · ${step.label}` : ""}
+                        {step.label ?? `Level ${step.level_no}`}
                       </dt>
                       <dd className="text-right text-zinc-700">{step.value}</dd>
                     </div>
@@ -419,7 +418,9 @@ export function DashboardWorkspace({
                     if (!value) return null;
                     return (
                       <div key={lvl} className="flex justify-between gap-3">
-                        <dt className="text-xs font-semibold text-zinc-400">L{lvl}</dt>
+                        <dt className="text-xs font-semibold text-zinc-400">
+                          Level {lvl}
+                        </dt>
                         <dd className="text-right text-zinc-700">{value}</dd>
                       </div>
                     );

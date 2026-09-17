@@ -19,11 +19,11 @@ import type {
 import {
   buildTree,
   childrenOf,
+  leafPrice,
   levelLabel,
   MAX_LEVEL,
   pathSteps,
-  priceLevelNo,
-  priceOfPath,
+  priceHeading,
   selectionPath,
 } from "@/lib/catalog-tree";
 import type { CatalogAssetTree } from "@/lib/catalog-tree";
@@ -184,8 +184,9 @@ export function RecordForm({
   const isOther = assetId === OTHER;
   const assetLoading = Boolean(assetId) && !isOther && loadedAssetId !== assetId;
   const chain = activeAsset ? selectionPath(activeAsset, selection) : [];
-  const autoPrice = activeAsset ? priceOfPath(chain).price : null;
-  const priceLabel = activeAsset ? priceLevelNo(activeAsset) : 6;
+  /* the price sits on the value that ends the combination */
+  const autoPrice = leafPrice(chain[chain.length - 1]);
+  const priceLabel = activeAsset ? priceHeading(activeAsset) : "HARGA";
   const selectedSteps = activeAsset && !isOther ? pathSteps(activeAsset, chain) : [];
 
   /** Levels to show: L2 first, then every level the picked chain reaches. */
@@ -592,8 +593,7 @@ export function RecordForm({
           {levelBlocks.map((block) => (
             <Card key={block.level} className="space-y-3 p-5">
               <p className="text-sm font-bold text-zinc-900">
-                L{block.level}
-                {block.label ? ` · ${block.label}` : ""}
+                {block.label ?? `Level ${block.level}`}
               </p>
               <div className="flex flex-wrap gap-1.5">
                 {block.options.map((option) => (
@@ -609,9 +609,6 @@ export function RecordForm({
                     )}
                   >
                     {option.value}
-                    {option.price !== null && option.price !== undefined
-                      ? ` · ${money(option.price)}`
-                      : ""}
                   </button>
                 ))}
               </div>
@@ -620,7 +617,7 @@ export function RecordForm({
 
           {activeAsset && (
             <Card className="space-y-3 p-5">
-              <p className="text-sm font-bold text-zinc-900">L{priceLabel} · Price</p>
+              <p className="text-sm font-bold text-zinc-900">{priceLabel}</p>
               {autoPrice !== null ? (
                 <>
                   <p className="text-2xl font-bold text-emerald-600">
@@ -747,14 +744,13 @@ export function RecordForm({
             {selectedSteps.map((step) => (
               <div key={step.level_no} className="flex justify-between gap-3">
                 <span className="text-zinc-500">
-                  L{step.level_no}
-                  {step.label ? ` · ${step.label}` : ""}
+                  {step.label ?? `Level ${step.level_no}`}
                 </span>
                 <span className="text-right text-zinc-800">{step.value}</span>
               </div>
             ))}
             <div className="flex justify-between gap-3 border-t border-zinc-100 pt-1.5">
-              <span className="text-zinc-500">Price (L{priceLabel})</span>
+              <span className="text-zinc-500">{priceLabel}</span>
               <span className="text-right font-bold text-zinc-900">
                 {effectivePrice !== null ? money(effectivePrice) : "Skipped"}
               </span>

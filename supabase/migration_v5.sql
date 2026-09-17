@@ -43,8 +43,13 @@ create table if not exists public.catalog_assets (
   id uuid primary key default gen_random_uuid(),
   name text not null,
   sort_order integer not null default 0,
+  -- heading of the price column ("HARGA", "PRICE", …)
+  price_label text,
   created_at timestamptz not null default now()
 );
+
+alter table public.catalog_assets
+  add column if not exists price_label text;
 
 create unique index if not exists catalog_assets_name_uniq
   on public.catalog_assets (lower(name));
@@ -58,8 +63,9 @@ create table if not exists public.catalog_levels (
   unique (asset_id, level_no)
 );
 
--- The option tree. `parent_id` is the option picked one level above (null = L2);
--- `price` sits on whichever node the admin priced.
+-- The option tree. `parent_id` is the option picked one level above (null = the
+-- first level); the price sits on the LAST value of a combination (a node with
+-- no children), i.e. the "price column" of the sheet.
 create table if not exists public.catalog_options (
   id uuid primary key default gen_random_uuid(),
   asset_id uuid not null references public.catalog_assets(id) on delete cascade,
@@ -71,6 +77,12 @@ create table if not exists public.catalog_options (
   sort_order integer not null default 0,
   created_at timestamptz not null default now()
 );
+
+-- Older drafts stored a price on every node; keep it only on the leaf values.
+update public.catalog_options as child
+   set price = null, raw_price = null
+ where child.price is not null
+   and exists (select 1 from public.catalog_options as parent where parent.parent_id = child.id);
 
 create index if not exists catalog_options_asset_idx
   on public.catalog_options (asset_id);

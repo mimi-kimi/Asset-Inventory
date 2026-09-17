@@ -21,8 +21,8 @@ lights, stop lights, road lamps and more.
 - **Tasks page** (`/dashboard/tasks`): import CSV/Excel batches + list all imported tasks with progress
 - **Task import** (CSV/Excel): `No, ID-Inventory, Position_X(lng), Position_Y(lat), Price, Type, Remarks`
 - **Map dashboard** (desktop): map always visible under the header — colored markers (🔵 not inspected · 🟢 working · 🔴 not working), task selector, total price + asset distribution panel, status panel
-- **Mobile app** with 4 tabs — Map · Task · Record · Profile — and a **QR-scanner/manual** inspection flow: ID-Inventory → photo → **L1 asset → L2–L6 values → price** (inherited from the catalog, optional override) → working? → remarks
-- **Asset catalog** (`/dashboard/catalog`, admin): manage every L1 asset, add the levels it needs (L2–L6), edit the selectable values and their prices; the Excel sheet can be imported on top as a helper that only adds what is missing
+- **Mobile app** with 4 tabs — Map · Task · Record · Profile — and a **QR-scanner/manual** inspection flow: ID-Inventory → photo → **asset → its values per level → price** (from the catalog, optional override) → working? → remarks
+- **Asset catalog** (`/dashboard/catalog`, admin): manage each L1 asset, give it the named levels it needs (`KETERANGAN · ARM · WATT · TIANG`, or just `AMP` for a feeder pillar), edit the values and the price of each combination; importing the *Aset perabot jalan* sheet is a helper that only adds what is missing
 - **Desktop header “Mobile” button** opens the inspector app; mobile users get
   back to the dashboard from *Profile → Open desktop dashboard*
 - Asset catalog with types (signboards, signals, lamps, guardrails, …)
@@ -178,44 +178,48 @@ the insert list.*
 on `inspections`, so the catalog is data you manage in the app:
 
 ```
-catalog_assets   L1 — 'LAMPU JALAN', 'KIOSK', …
-catalog_levels   the named levels an asset uses: 2..6 (any subset, per asset)
-catalog_options  the value tree; a node may carry the price (nullable)
+catalog_assets   L1 — 'LAMPU JALAN', 'KIOSK', … (+ the price heading, e.g. "HARGA")
+catalog_levels   the named levels an asset uses, in order (as many as it needs)
+catalog_options  the value tree: parent_id links a value to the one above it
+                 the price sits on the value that ENDS a combination
 ```
 
 Design points:
 
-- **Depth is per asset.** A feeder pillar only needs `L2 · AMP`; a lamp might use
-  `L2 KETERANGAN → L3 ARM → L4 WATT → L5 TIANG`. Empty levels are skipped by the
-  phone form automatically.
-- **A price belongs to a node** and is inherited by everything under it, so the
-  price used for a record is the *deepest non-null price on the picked path*.
-  You can therefore price `8M` once, price only exact combinations, or mix both.
+- **Depth is per asset.** A feeder pillar only needs `AMP`; a lamp might use
+  `KETERANGAN → ARM → WATT → TIANG`. Levels are shown by name — no "L2/L3…"
+  numbering anywhere in the UI.
+- **The price belongs to the ending value** (the sheet's `HARGA` column): the
+  last value of a combination is the only row with a price box, so one
+  combination = one price. Intermediate values carry no price.
+- Each asset has a **price heading** (defaults to `HARGA`, editable) that labels
+  the price column in the catalog and the price box on the phone.
 - **Read = any signed-in user, write = admins** (`public.is_admin()`).
 
 ### Managing it — Dashboard → Catalog
-- The list shows each asset with its levels, option count and
+- The list shows each asset with its level names, option count and
   `priced/combinations`; expand a row to edit values and prices inline
   (`value | price`, empty = no price, `Save` per row).
-- **+ Add asset** takes a name and (optionally) its first level label.
+- **+ Add asset** takes a name and (optionally) its first level name.
 - **Open full editor** (or `/dashboard/catalog/<id>`) adds rename, sort order,
-  delete asset, add/remove levels, per-row delete and multi-line value entry
-  (`8M | 8500`, `GAL 12000` …).
+  price heading, delete asset, add/rename/remove levels, per-row delete and
+  multi-line value entry (`8M | 8500`, `GAL 12000` …).
 - **Import Excel** is a *helper, not a reset*: matching assets (by name), levels
   (by number) and values (by parent + value) are **skipped**, only missing rows
   are inserted, and prices are only written on those new rows unless you tick
   *also refresh the price of existing rows*. The preview lists exactly what would
-  be added vs. skipped, so importing the same sheet twice changes nothing.
+  be added vs. skipped, so importing the same sheet twice changes nothing. It
+  also picks up each block's price heading from the sheet.
 - Deleting catalog rows never touches recorded inspections: each inspection keeps
   its own snapshot (`catalog_path` with labels + values, `l2`…`l6`, `price`,
   `price_manual`, `other_description`).
 
 ### On the phone
-The **Asset** step shows L1 buttons → cascading chips for each level the asset
-defines → the price (inherited from the catalog, `L6 · Price` style label). A
-price is **skipped by default**: leave the box empty, or type a number to
-override/fill it. Anything not in the catalog is recorded through
-**Lain-lain** with a manual description and optional price.
+The **Asset** step shows L1 buttons → chips for each level the asset defines
+(titled with the level's name) → a single price box labelled with the asset's
+price heading (`HARGA`). A price is **skipped by default**: leave the box empty,
+or type a number to override/fill it. Anything not in the catalog is recorded
+through **Lain-lain** with a manual description and optional price.
 
 Prices show up in the map drawer, the inspections list, the mobile records list
 and the task CSV export (`Price source` = `catalog` / `manual` / `none`).

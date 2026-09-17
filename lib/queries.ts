@@ -186,7 +186,10 @@ export async function queryAssetWithInspectionsById(
 export async function queryCatalog(): Promise<CatalogData> {
   const supabase = await createClient();
   const [assets, levels, options] = await Promise.all([
-    supabase.from("catalog_assets").select("id, name, sort_order, created_at").order("sort_order"),
+    supabase
+      .from("catalog_assets")
+      .select("id, name, sort_order, price_label, created_at")
+      .order("sort_order"),
     supabase.from("catalog_levels").select("id, asset_id, level_no, label"),
     supabase
       .from("catalog_options")
@@ -207,7 +210,7 @@ export async function queryCatalogAsset(id: string): Promise<CatalogData> {
   const supabase = await createClient();
   const { data: asset, error } = await supabase
     .from("catalog_assets")
-    .select("id, name, sort_order, created_at")
+    .select("id, name, sort_order, price_label, created_at")
     .eq("id", id)
     .maybeSingle();
   if (error) throw error;

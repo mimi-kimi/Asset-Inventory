@@ -82,7 +82,7 @@ export function CatalogManager({
     if (!needle) return true;
     return [
       asset.name,
-      ...asset.levels.map((level) => `L${level.level_no} ${level.label}`),
+      ...asset.levels.map((level) => level.label),
       ...asset.options.map((option) => option.value),
     ]
       .join(" ")
@@ -166,12 +166,29 @@ export function CatalogManager({
         const rows = plan.newAssets.map((asset) => {
           const id = crypto.randomUUID();
           nameToId.set(asset.name.trim().toLowerCase(), id);
-          return { id, name: asset.name, sort_order: asset.sort_order };
+          return {
+            id,
+            name: asset.name,
+            sort_order: asset.sort_order,
+            price_label: asset.price_label,
+          };
         });
         const { error: assetError } = await supabase
           .from("catalog_assets")
           .insert(rows);
         if (assetError) throw assetError;
+      }
+
+      if (plan.priceLabels.length > 0) {
+        for (const entry of plan.priceLabels) {
+          const assetId = nameToId.get(entry.assetName.trim().toLowerCase());
+          if (!assetId) continue;
+          const { error: labelError } = await supabase
+            .from("catalog_assets")
+            .update({ price_label: entry.label })
+            .eq("id", assetId);
+          if (labelError) throw labelError;
+        }
       }
 
       if (plan.newLevels.length > 0) {
@@ -508,9 +525,8 @@ export function CatalogManager({
                     <span className="text-[11px] font-normal text-zinc-400">L1</span>
                   </p>
                   <p className="truncate text-xs text-zinc-500">
-                    {asset.levels
-                      .map((level) => `L${level.level_no} ${level.label}`)
-                      .join(" · ") || "No levels yet"}
+                    {asset.levels.map((level) => level.label).join(" · ") ||
+                      "No levels yet"}
                   </p>
                 </div>
                 <div className="flex items-center gap-2 text-xs">

@@ -31,6 +31,8 @@ export interface CatalogImportAsset {
   sortOrder: number;
   /** level number (2..5) → label from the block header */
   labels: Record<number, string>;
+  /** heading of the price column of this block ("HARGA" …) */
+  priceLabel: string | null;
   /** level number → distinct values seen in the sheet */
   options: Record<number, string[]>;
   rows: CatalogImportRow[];
@@ -93,6 +95,8 @@ export async function parseCatalogFile(
   let columnLevels: number[] = [];
   /** level number → label taken from the current block's header row */
   let blockLabels: Record<number, string> = {};
+  /** heading of the price column of the current block ("HARGA" …) */
+  let blockPriceLabel: string | null = null;
   /** physical column index → current forward-filled value */
   const filled: Record<number, string> = {};
 
@@ -110,6 +114,7 @@ export async function parseCatalogFile(
     if (first.toUpperCase() === "ASET") {
       columnLevels = [];
       blockLabels = {};
+      blockPriceLabel = text(row[6]) || null;
       for (let c = 2; c <= 5; c += 1) {
         const label = text(row[c]);
         if (label) {
@@ -128,6 +133,7 @@ export async function parseCatalogFile(
         name: first,
         sortOrder: assets.length,
         labels: { ...blockLabels },
+        priceLabel: blockPriceLabel,
         options: {},
         rows: [],
       };

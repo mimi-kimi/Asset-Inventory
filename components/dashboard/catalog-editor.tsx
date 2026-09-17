@@ -9,9 +9,10 @@ import { cn, describeError } from "@/lib/format";
 import {
   childrenOf,
   coverageOf,
+  levelLabel,
   nextLevelNo,
   optionsAtLevel,
-  priceLevelNo,
+  priceHeading,
 } from "@/lib/catalog-tree";
 import type { CatalogAssetTree } from "@/lib/catalog-tree";
 import type { CatalogOptionRow } from "@/lib/types";
@@ -56,12 +57,12 @@ export function AssetCatalogEditor({
   const [valueEdits, setValueEdits] = useState<Record<string, string>>({});
   const [savedId, setSavedId] = useState("");
   const [newLabel, setNewLabel] = useState("");
-  const [newLevelNo, setNewLevelNo] = useState<number>(() => nextLevelNo(asset));
   const [nameDraft, setNameDraft] = useState(asset.name);
   const [sortDraft, setSortDraft] = useState(String(asset.sort_order));
+  const [priceLabelDraft, setPriceLabelDraft] = useState(priceHeading(asset));
 
   const coverage = useMemo(() => coverageOf(asset), [asset]);
-  const priceLevel = priceLevelNo(asset);
+  const priceLabel = priceHeading(asset);
 
   async function saveAsset() {
     const name = nameDraft.trim();
@@ -74,7 +75,11 @@ export function AssetCatalogEditor({
     try {
       const { error: updateError } = await supabase
         .from("catalog_assets")
-        .update({ name, sort_order: Number(sortDraft) || 0 })
+        .update({
+          name,
+          sort_order: Number(sortDraft) || 0,
+          price_label: priceLabelDraft.trim() || null,
+        })
         .eq("id", asset.id);
       if (updateError) throw updateError;
       setNotice("Asset saved.");
@@ -246,20 +251,21 @@ export function AssetCatalogEditor({
   }
 
   async function addLevel() {
-    const label = (newLabel.trim() || LEVEL_SUGGESTIONS[newLevelNo] || "").trim();
+    const label = (newLabel.trim() || LEVEL_SUGGESTIONS[nextLevelNo(asset)] || "").trim();
     if (!label) {
-      setError("Give the new level a label.");
+      setError("Give the new level a name.");
       return;
     }
+    const levelNo = nextLevelNo(asset);
     setBusy("level");
     setError("");
     try {
       const { error: insertError } = await supabase
         .from("catalog_levels")
-        .insert({ asset_id: asset.id, level_no: newLevelNo, label });
+        .insert({ asset_id: asset.id, level_no: levelNo, label });
       if (insertError) throw insertError;
       setNewLabel("");
-      setNotice(`Level L${newLevelNo} added.`);
+      setNotice(`"${label}" added as the next level.`);
       router.refresh();
     } catch (err) {
       setError(describeError(err, "Could not add the level."));
@@ -357,6 +363,17 @@ export function AssetCatalogEditor({
                 inputMode="numeric"
               />
             </div>
+            <div className="w-32">
+              <label className="mb-1 block text-xs font-semibold text-zinc-500">
+                Price heading
+              </label>
+              <input
+                className={inputCls}
+                value={priceLabelDraft}
+                onChange={(e) => setPriceLabelDraft(e.target.value)}
+                placeholder="HARGA"
+              />
+            </div>
             <button
               type="button"
               onClick={() => void saveAsset()}
@@ -394,7 +411,7 @@ export function AssetCatalogEditor({
               {coverage.priced}/{coverage.combinations} combination(s) priced
             </span>
             <span className="rounded-full bg-zinc-100 px-2.5 py-1">
-              price shown as L{priceLevel}
+              price column: {priceLabel}
             </span>
           </div>
         </Card>
@@ -402,8 +419,8 @@ export function AssetCatalogEditor({
 
       {asset.levels.length === 0 && (
         <p className="rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-800">
-          No levels yet. Add L2 below (then L3, L4 … only if this asset needs them) or
-          load everything from the <strong>Aset perabot jalan</strong> sheet.
+          No levels yet. Add the first one below (then more only if this asset needs
+          them) or load everything from the <strong>Aset perabot jalan</strong> sheet.
         </p>
       )}
 
@@ -417,12 +434,9 @@ export function AssetCatalogEditor({
           >
             <div className="flex flex-wrap items-center justify-between gap-2 border-b border-zinc-100 bg-zinc-50 px-4 py-2.5">
               <div className="flex items-center gap-2">
-                <span className="rounded bg-zinc-900 px-1.5 py-0.5 text-[11px] font-bold text-white">
-                  L{level.level_no}
-                </span>
                 {full ? (
                   <input
-                    className="w-44 rounded border border-zinc-300 px-2 py-1 text-xs font-semibold"
+                    className="w-52 rounded border border-zinc-300 px-2 py-1 text-xs font-bold"
                     defaultValue={level.label}
                     onBlur={(e) => {
                       const value = e.target.value.trim();
@@ -430,10 +444,10 @@ export function AssetCatalogEditor({
                         void renameLevel(level.level_no, value);
                       }
                     }}
-                    aria-label={`L${level.level_no} label`}
+                    aria-label={`Level ${level.level_no} name`}
                   />
                 ) : (
-                  <span className="text-xs font-bold text-zinc-700">{level.label}</span>
+                  <span className="text-xs font-bold text-zinc-800">{level.label}</span>
                 )}
                 <span className="text-[11px] text-zinc-400">
                   {options.length} option(s)
@@ -494,27 +508,26 @@ export function AssetCatalogEditor({
                       }
                       aria-label="Option value"
                     />
-                    <div className="flex items-center gap-1">
-                      <span className="text-[10px] font-semibold uppercase text-zinc-400">
-                        L{priceLevel}
-                      </span>
-                      <input
-                        className="w-28 rounded-lg border border-zinc-300 px-2 py-1.5 text-sm"
-                        value={price}
-                        placeholder="no price"
-                        inputMode="decimal"
-                        onChange={(e) =>
-                          setPriceEdits((prev) => ({
-                            ...prev,
-                            [option.id]: e.target.value,
-                          }))
-                        }
-                        aria-label="Price"
-                      />
-                    </div>
-                    {kids > 0 && (
-                      <span className="text-[10px] text-zinc-400">{kids} under</span>
-                    )}
+                    {kids === 0 ? (
+                      <div className="flex items-center gap-1">
+                        <span className="text-[10px] font-semibold uppercase text-zinc-400">
+                          {priceLabel}
+                        </span>
+                        <input
+                          className="w-28 rounded-lg border border-zinc-300 px-2 py-1.5 text-sm"
+                          value={price}
+                          placeholder="no price"
+                          inputMode="decimal"
+                          onChange={(e) =>
+                            setPriceEdits((prev) => ({
+                              ...prev,
+                              [option.id]: e.target.value,
+                            }))
+                          }
+                          aria-label={priceLabel}
+                        />
+                      </div>
+                    ) : null}
                     {dirty ? (
                       <button
                         type="button"
@@ -553,7 +566,7 @@ export function AssetCatalogEditor({
             <AddOptionsForm
               asset={asset}
               levelNo={level.level_no}
-              priceLevel={priceLevel}
+              priceHeading={priceLabel}
               busy={busy}
               onAdd={insertOptions}
             />
@@ -562,27 +575,15 @@ export function AssetCatalogEditor({
       })}
       {asset.levels.length > 0 && (
         <div className="flex flex-wrap items-end gap-2 rounded-xl border border-dashed border-zinc-300 bg-zinc-50 px-4 py-3">
-          <div className="w-20">
-            <label className="mb-1 block text-xs font-semibold text-zinc-500">Level</label>
-            <select
-              className={`${inputCls} py-2`}
-              value={newLevelNo}
-              onChange={(e) => setNewLevelNo(Number(e.target.value))}
-            >
-              {[2, 3, 4, 5, 6].map((levelNo) => (
-                <option key={levelNo} value={levelNo}>
-                  L{levelNo}
-                </option>
-              ))}
-            </select>
-          </div>
-          <div className="min-w-48 flex-1">
-            <label className="mb-1 block text-xs font-semibold text-zinc-500">Label</label>
+          <div className="min-w-56 flex-1">
+            <label className="mb-1 block text-xs font-semibold text-zinc-500">
+              New level name
+            </label>
             <input
               className={inputCls}
               value={newLabel}
               onChange={(e) => setNewLabel(e.target.value)}
-              placeholder={LEVEL_SUGGESTIONS[newLevelNo] ?? "e.g. KETERANGAN"}
+              placeholder={LEVEL_SUGGESTIONS[nextLevelNo(asset)] ?? "e.g. KETERANGAN"}
             />
           </div>
           <button
@@ -616,13 +617,13 @@ export function AssetCatalogEditor({
 function AddOptionsForm({
   asset,
   levelNo,
-  priceLevel,
+  priceHeading,
   busy,
   onAdd,
 }: {
   asset: CatalogAssetTree;
   levelNo: number;
-  priceLevel: number;
+  priceHeading: string;
   busy: string;
   onAdd: (
     levelNo: number,
@@ -638,11 +639,13 @@ function AddOptionsForm({
   const [lines, setLines] = useState("");
   const parent = parents.find((item) => item.id === parentId) ?? null;
   const key = `add-${levelNo}-${parent?.id ?? "root"}`;
+  const previous = levelLabel(asset, levelNo - 1);
 
   if (levelNo > 2 && parents.length === 0) {
     return (
       <p className="border-t border-zinc-100 bg-zinc-50/60 px-4 py-3 text-xs text-zinc-400">
-        Add L{levelNo - 1} options first — L{levelNo} values hang under them.
+        Add {previous ? `"${previous}"` : "the level above"} values first — these hang
+        under them.
       </p>
     );
   }
@@ -667,8 +670,8 @@ function AddOptionsForm({
           </label>
         )}
         <span className="text-[11px] text-zinc-400">
-          one per line — <code>value</code> or <code>value | price</code> (L
-          {priceLevel} price is optional)
+          one per line — <code>value</code> or <code>value | price</code> ({priceHeading}{" "}
+          is optional)
         </span>
       </div>
       <textarea

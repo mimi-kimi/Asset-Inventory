@@ -18,6 +18,13 @@ export interface PlannedOption {
   sort_order: number;
 }
 
+export interface PlannedAsset {
+  name: string;
+  sort_order: number;
+  /** heading of the price column from the sheet ("HARGA") */
+  price_label: string | null;
+}
+
 export interface PlannedPriceUpdate {
   id: string;
   assetName: string;
@@ -27,9 +34,11 @@ export interface PlannedPriceUpdate {
 }
 
 export interface CatalogMergePlan {
-  newAssets: { name: string; sort_order: number }[];
+  newAssets: PlannedAsset[];
   newLevels: { assetName: string; level_no: number; label: string }[];
   newOptions: PlannedOption[];
+  /** existing assets whose price column has no heading yet */
+  priceLabels: { assetName: string; label: string }[];
   /** existing rows whose price differs from the sheet (only applied on request) */
   priceUpdates: PlannedPriceUpdate[];
   /** sheet paths that are already in the catalog */
@@ -55,6 +64,7 @@ export function planCatalogMerge(
     newAssets: [],
     newLevels: [],
     newOptions: [],
+    priceLabels: [],
     priceUpdates: [],
     skippedPaths: 0,
     sheetPaths: 0,
@@ -79,10 +89,17 @@ export function planCatalogMerge(
       plan.newAssets.push({
         name: sheetAsset.name,
         sort_order: current.assets.length + plan.newAssets.length,
+        price_label: sheetAsset.priceLabel,
       });
     } else {
       for (const option of existing.options) {
         idByKey.set(optionPathKey(existing, option), option.id);
+      }
+      if (sheetAsset.priceLabel && !(existing.price_label ?? "").trim()) {
+        plan.priceLabels.push({
+          assetName: existing.name,
+          label: sheetAsset.priceLabel,
+        });
       }
     }
 
@@ -121,6 +138,7 @@ export function planCatalogMerge(
 
           const newId = `new:${assetId}:${(placeholder += 1)}`;
           idByKey.set(key, newId);
+          const isLast = index === values.length - 1;
           plan.newOptions.push({
             placeholder: newId,
             assetName,
@@ -128,8 +146,9 @@ export function planCatalogMerge(
             parentPath: [...ancestors],
             parentOptionId: parentId,
             value,
-            price: row.price,
-            raw_price: row.rawPrice,
+            /* the price belongs to the value that ends the combination */
+            price: isLast ? row.price : null,
+            raw_price: isLast ? row.rawPrice : null,
             sort_order: sortOrder,
           });
           parentId = newId;

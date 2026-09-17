@@ -26,7 +26,7 @@ lights, stop lights, road lamps and more.
 - **Desktop header “Mobile” button** opens the inspector app; mobile users get
   back to the dashboard from *Profile → Open desktop dashboard*
 - Asset catalog with types (signboards, signals, lamps, guardrails, …)
-- Row Level Security on every table; photos in a public Supabase bucket
+- Row Level Security on every table; inspection photos are downscaled WebP files in a public Supabase Storage bucket, and the row keeps the public URL
 
 ## Project layout
 
@@ -46,7 +46,8 @@ supabase/schema.sql   one-time database setup
    `supabase/schema.sql`, `supabase/migration_v2.sql` (tasks + import columns),
    `supabase/migration_v3.sql` (inspection photo column),
    `supabase/migration_v4.sql` (username login + admin-managed users) and
-   `supabase/migration_v5.sql` (asset catalog + inspection snapshot columns).
+   `supabase/migration_v5.sql` (asset catalog + inspection snapshot columns) and
+   `supabase/migration_v6.sql` (photo bucket + photo_url/photo_path).
    A sample import file lives at `public/sample-task.csv`.
 3. **Disable self sign-up** — Supabase → *Authentication → Providers → Email* →
    turn **off** "Allow new users to sign up". Accounts are created by admins only.
@@ -224,6 +225,27 @@ through **Lain-lain** with a manual description and optional price.
 Prices show up in the map drawer, the inspections list, the mobile records list
 and the task CSV export (`Price source` = `catalog` / `manual` / `none`).
 
+## Inspection photos
+
+The phone's **Photo** step shrinks the snapshot to a **1280 px WebP** (quality 0.7,
+~100 KB) and uploads it to Storage; the record stores the object's **public URL**:
+
+```
+tree-photos/<username>/<marker seq>_<epoch ms>.webp
+https://<project>.supabase.co/storage/v1/object/public/tree-photos/sitechecker1/3_1783477395101.webp
+```
+
+- `supabase/migration_v6.sql` creates the bucket + policies and adds
+  `inspections.photo_url` / `photo_path`.
+- Bucket name comes from `NEXT_PUBLIC_PHOTO_BUCKET` (default `tree-photos`); the
+  username folder is the signed-in inspector's `profiles.username` and the number
+  is the marker's `seq_no`.
+- The bucket is public (anyone with the link can view), uploads require a signed-in
+  user and only the uploader can delete. Replacing or removing a photo deletes the
+  old object.
+- Records saved before this change keep their base64 `photo_webp`; the UI prefers
+  `photo_url` when both exist, so nothing has to be migrated to keep working.
+
 ## Deploy to Vercel
 
 1. Push this folder to a GitHub repository.
@@ -237,8 +259,8 @@ and the task CSV export (`Price source` = `catalog` / `manual` / `none`).
 
 - **“relation does not exist” / permission errors** — the `schema.sql` script
   was not run (or RLS was changed). Re-run it.
-- **Photo upload fails** — check the `inspection-photos` bucket + its storage
-  policies exist.
+- **Photo upload fails** — check the `tree-photos` bucket + its storage policies
+  exist (run `supabase/migration_v6.sql`).
 - **Sign in loops** — email confirmation is on; confirm the email or disable
   confirmation in Supabase Auth settings for development.
 

@@ -89,7 +89,7 @@ export function DashboardWorkspace({
       const { data } = await createClient()
         .from("assets")
         .select(
-          "*, inspections(id, functional, inspected_at, photo_webp, price, price_manual, catalog_asset_id, catalog_path, asset_category, l2, l3, l4, l5, l6, other_description)",
+          "*, inspections(id, functional, inspected_at, photo_url, photo_path, photo_webp, price, price_manual, catalog_asset_id, catalog_path, asset_category, l2, l3, l4, l5, l6, other_description)",
         )
         .eq("id", id)
         .maybeSingle();
@@ -163,7 +163,11 @@ export function DashboardWorkspace({
           b.inspected_at.localeCompare(a.inspected_at),
         )[0]
       : null;
-  const photoSrc = latestInspection?.photo_webp ?? selected?.photo_url ?? null;
+  const photoSrc =
+    latestInspection?.photo_url ??
+    latestInspection?.photo_webp ??
+    selected?.photo_url ??
+    null;
 
   return (
     <div className="h-full w-full overflow-y-auto bg-zinc-100 xl:overflow-hidden">

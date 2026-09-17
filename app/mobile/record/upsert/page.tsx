@@ -17,7 +17,7 @@ export default async function UpsertPage({
 }: {
   searchParams: Promise<{ asset?: string; inspection?: string }>;
 }) {
-  await requireViewer();
+  const viewer = await requireViewer();
   const sp = await searchParams;
   const assetId = typeof sp.asset === "string" ? sp.asset : "";
   const inspectionId = typeof sp.inspection === "string" ? sp.inspection : "";
@@ -57,6 +57,7 @@ export default async function UpsertPage({
       asset={asset}
       inspection={inspection}
       assetTypes={assetTypes}
+      username={viewer.profile.username}
     />
   );
 }

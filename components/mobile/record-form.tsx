@@ -5,7 +5,10 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Camera, CheckCircle2, Loader2, Save } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
-import { fileToWebpDataUrl } from "@/lib/image";
+import { PHOTO_BUCKET } from "@/lib/env";
+import { fileToWebpBlob } from "@/lib/image";
+import { deleteInspectionPhoto, uploadInspectionPhoto } from "@/lib/storage";
+import type { UploadedPhoto } from "@/lib/storage";
 import { cn } from "@/lib/format";
 import type {
   AssetRow,
@@ -42,10 +45,12 @@ export function RecordForm({
   asset,
   inspection,
   assetTypes,
+  username,
 }: {
   asset: AssetRow | null;
   inspection: InspectionRow | null;
   assetTypes: AssetType[];
+  username?: string | null;
 }) {
   const router = useRouter();
   const supabase = createClient();
@@ -53,9 +58,19 @@ export function RecordForm({
   /* ---------- wizard state ---------- */
   const [step, setStep] = useState(inspection ? 1 : 0);
   const [inventoryId, setInventoryId] = useState(asset?.inventory_id ?? "");
-  const [photoData, setPhotoData] = useState<string | null>(
-    inspection?.photo_webp ?? null,
+  /* ---------- photo: downscaled WebP uploaded to Storage, URL on the row ---------- */
+  const [photoPreview, setPhotoPreview] = useState<string | null>(
+    inspection?.photo_url ?? inspection?.photo_webp ?? null,
   );
+  const [photoUpload, setPhotoUpload] = useState<UploadedPhoto | null>(
+    inspection?.photo_url
+      ? { url: inspection.photo_url, path: inspection.photo_path ?? "" }
+      : null,
+  );
+  const [photoBusy, setPhotoBusy] = useState(false);
+  const [photoError, setPhotoError] = useState("");
+  /** true once the inspector removed the photo (so legacy base64 is dropped too) */
+  const [photoCleared, setPhotoCleared] = useState(false);
   const [working, setWorking] = useState(inspection?.functional ?? true);
   const [remarks, setRemarks] = useState(inspection?.remarks ?? "");
 
@@ -218,11 +233,39 @@ export function RecordForm({
   async function handlePhotoFile(file: File | null | undefined) {
     if (!file) return;
     setError("");
+    setPhotoError("");
+    setPhotoBusy(true);
+    const previous = photoUpload;
     try {
-      setPhotoData(await fileToWebpDataUrl(file));
+      /* 1. shrink to ~1280 px WebP  2. upload  3. keep the public URL */
+      const photo = await fileToWebpBlob(file);
+      setPhotoPreview(photo.previewUrl);
+      const uploaded = await uploadInspectionPhoto(supabase, {
+        blob: photo.blob,
+        username,
+        assetSeq: asset?.seq_no ?? asset?.code ?? null,
+      });
+      setPhotoUpload(uploaded);
+      setPhotoCleared(false);
+      if (previous?.path && previous.path !== uploaded.path) {
+        void deleteInspectionPhoto(supabase, previous.path);
+      }
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Could not process that photo.");
+      setPhotoError(
+        `${err instanceof Error ? err.message : "Upload failed."} — check the connection and try again.`,
+      );
+    } finally {
+      setPhotoBusy(false);
     }
+  }
+
+  async function removePhoto() {
+    const current = photoUpload;
+    setPhotoUpload(null);
+    setPhotoPreview(null);
+    setPhotoError("");
+    setPhotoCleared(true);
+    if (current?.path) void deleteInspectionPhoto(supabase, current.path);
   }
 
   function chooseAsset(nextId: string) {
@@ -317,13 +360,23 @@ export function RecordForm({
         other_description: isOther ? otherName.trim() : null,
       };
 
+      const photoFields = photoUpload
+        ? {
+            photo_url: photoUpload.url,
+            photo_path: photoUpload.path,
+            photo_webp: null,
+          }
+        : photoCleared
+          ? { photo_url: null, photo_path: null, photo_webp: null }
+          : { photo_url: null, photo_path: null };
+
       const base = {
         functional: working,
         condition: (working ? "GOOD" : "NOT_FUNCTIONAL") as
           | "GOOD"
           | "NOT_FUNCTIONAL",
         remarks: remarks.trim() || null,
-        photo_webp: photoData,
+        ...photoFields,
       };
 
       if (inspection) {
@@ -484,18 +537,19 @@ export function RecordForm({
           <div>
             <p className="text-sm font-bold text-zinc-900">Photo</p>
             <p className="text-xs text-zinc-500">
-              Take or pick a picture — it is converted to a small WebP image.
+              Take or pick a picture — it is shrunk to a small WebP and uploaded to
+              Storage, and the record keeps its public link.
             </p>
           </div>
-          {photoData ? (
+          {photoPreview ? (
             <div className="flex items-start gap-3">
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
-                src={photoData}
+                src={photoPreview}
                 alt="Inspection"
                 className="h-24 w-24 rounded-xl border border-zinc-200 object-cover"
               />
-              <div className="flex flex-col gap-2">
+              <div className="flex min-w-0 flex-col gap-2">
                 <label className="inline-flex cursor-pointer items-center gap-1.5 rounded-lg border border-zinc-300 bg-white px-3 py-2 text-xs font-semibold text-zinc-700 hover:bg-zinc-50">
                   Replace photo
                   <input
@@ -503,6 +557,7 @@ export function RecordForm({
                     accept="image/*"
                     capture="environment"
                     className="hidden"
+                    disabled={photoBusy}
                     onChange={(e) => {
                       handlePhotoFile(e.target.files?.[0]);
                       e.target.value = "";
@@ -511,7 +566,7 @@ export function RecordForm({
                 </label>
                 <button
                   type="button"
-                  onClick={() => setPhotoData(null)}
+                  onClick={() => void removePhoto()}
                   className="rounded-lg px-3 py-1.5 text-left text-xs font-semibold text-red-600 hover:bg-red-50"
                 >
                   Remove photo
@@ -530,12 +585,29 @@ export function RecordForm({
                 accept="image/*"
                 capture="environment"
                 className="hidden"
+                disabled={photoBusy}
                 onChange={(e) => {
                   handlePhotoFile(e.target.files?.[0]);
                   e.target.value = "";
                 }}
               />
             </label>
+          )}
+
+          {photoBusy && (
+            <p className="flex items-center gap-1.5 text-xs text-zinc-500">
+              <Loader2 className="h-3.5 w-3.5 animate-spin" /> Resizing & uploading…
+            </p>
+          )}
+          {photoError && (
+            <p className="rounded-lg bg-red-50 px-3 py-2 text-xs text-red-700">
+              {photoError}
+            </p>
+          )}
+          {!photoBusy && photoUpload && (
+            <p className="truncate text-xs text-emerald-600">
+              Uploaded → {PHOTO_BUCKET}/{photoUpload.path}
+            </p>
           )}
         </Card>
       )}

@@ -109,6 +109,8 @@ export interface AssetRow {
     functional: boolean;
     inspected_at: string;
     photo_webp?: string | null;
+    photo_url?: string | null;
+    photo_path?: string | null;
     price?: number | null;
     price_manual?: boolean | null;
     asset_category?: string | null;
@@ -139,6 +141,10 @@ export interface InspectionRow {
   functional: boolean;
   remarks: string | null;
   photo_webp?: string | null;
+  /** public Storage URL of the mobile photo (preferred) */
+  photo_url?: string | null;
+  /** object path inside the bucket, for replace/delete */
+  photo_path?: string | null;
   /* v5 catalog selections */
   catalog_asset_id?: string | null;
   asset_category?: string | null;

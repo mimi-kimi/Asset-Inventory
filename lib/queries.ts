@@ -117,7 +117,7 @@ export async function queryTaskAssets(): Promise<AssetRow[]> {
   const { data, error } = await supabase
     .from("assets")
     .select(
-      "*, tasks(id, name), inspections(id, functional, inspected_at, price, price_manual, catalog_asset_id, asset_category, catalog_path, l2, l3, l4, l5, l6, other_description)",
+      "*, tasks(id, name), inspections(id, inspected_at, condition, functional, remarks, inspector_id, created_at, photo_url, price, price_manual, catalog_asset_id, asset_category, catalog_path, l2, l3, l4, l5, l6, other_description)",
     )
     .not("task_id", "is", null)
     .order("created_at", { ascending: false })

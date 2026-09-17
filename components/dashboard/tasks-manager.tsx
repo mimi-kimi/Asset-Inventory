@@ -3,7 +3,8 @@
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { CalendarDays, Download, ListChecks, Plus, Trash2 } from "lucide-react";
-import { buildCsv, describeError, downloadFile, fmtDate } from "@/lib/format";
+import { describeError, downloadFile, fmtDate } from "@/lib/format";
+import { buildInspectionCsv } from "@/lib/inspection-export";
 import type { AssetRow, TaskRow } from "@/lib/types";
 import { createClient } from "@/lib/supabase/client";
 import { Card, EmptyState } from "@/components/ui";
@@ -13,10 +14,12 @@ export function TasksManager({
   tasks,
   assets,
   isAdmin,
+  inspectorNames = {},
 }: {
   tasks: TaskRow[];
   assets: AssetRow[];
   isAdmin: boolean;
+  inspectorNames?: Record<string, string | null>;
 }) {
   const router = useRouter();
   const [importOpen, setImportOpen] = useState(false);
@@ -36,53 +39,21 @@ export function TasksManager({
   );
 
   /**
-   * Downloads every marker of a task with its latest inspection result.
-   * "Working" is blank for markers that have not been inspected yet.
+   * Downloads the task's markers with every field of their inspection.
+   * Markers that have not been inspected yet are listed too (blank report
+   * columns), so the sheet doubles as the task checklist.
    */
   function exportTask(task: TaskRow) {
-    const taskAssets = assets
-      .filter((a) => a.task_id === task.id)
-      .sort((a, b) =>
-        (a.seq_no ?? "").localeCompare(b.seq_no ?? "", undefined, {
-          numeric: true,
-        }),
-      );
-
-    const body = taskAssets.map((a) => {
-      const latest = a.inspections?.length
-        ? [...a.inspections].sort((x, y) =>
-            y.inspected_at.localeCompare(x.inspected_at),
-          )[0]
-        : null;
-      return [
-        a.seq_no ?? "",
-        a.inventory_id ?? "",
-        a.type_text || "",
-        a.price ?? "",
-        latest ? (latest.functional ? "YES" : "NO") : "",
-        latest ? new Date(latest.inspected_at).toLocaleString() : "",
-        a.notes ?? "",
-        a.lat ?? "",
-        a.lng ?? "",
-      ];
-    });
-
+    const taskAssets = assets.filter((a) => a.task_id === task.id);
     downloadFile(
       `${task.name.replace(/[^\w-]+/g, "_")}-inspections.csv`,
-      buildCsv(
-        [
-          "No",
-          "ID-Inventory",
-          "Type",
-          "Price",
-          "Working",
-          "Inspected At",
-          "Remarks",
-          "Latitude",
-          "Longitude",
-        ],
-        body,
-      ),
+      buildInspectionCsv({
+        assets: taskAssets,
+        taskName: task.name,
+        inspectorNames,
+        mode: "latest",
+        skipUninspected: false,
+      }),
     );
   }
 

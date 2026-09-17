@@ -1,9 +1,8 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { ChevronRight, Loader2, Plus, Save, Trash2 } from "lucide-react";
+import { Loader2, Plus, Save, Trash2 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { cn, describeError } from "@/lib/format";
 import {
@@ -17,6 +16,7 @@ import {
 import type { CatalogAssetTree } from "@/lib/catalog-tree";
 import type { CatalogOptionRow } from "@/lib/types";
 import { btnPrimary, btnSecondary, Card, inputCls } from "@/components/ui";
+import { CatalogCombinations } from "@/components/dashboard/catalog-combinations";
 
 const LEVEL_SUGGESTIONS: Record<number, string> = {
   2: "KETERANGAN",
@@ -39,21 +39,13 @@ export function parsePriceInput(raw: string): number | null | undefined {
   return Number.isFinite(value) ? value : undefined;
 }
 
-export function AssetCatalogEditor({
-  asset,
-  mode = "compact",
-}: {
-  asset: CatalogAssetTree;
-  mode?: "compact" | "full";
-}) {
+export function AssetCatalogEditor({ asset }: { asset: CatalogAssetTree }) {
   const router = useRouter();
   const supabase = createClient();
-  const full = mode === "full";
 
   const [busy, setBusy] = useState("");
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
-  const [priceEdits, setPriceEdits] = useState<Record<string, string>>({});
   const [valueEdits, setValueEdits] = useState<Record<string, string>>({});
   const [savedId, setSavedId] = useState("");
   const [newLabel, setNewLabel] = useState("");
@@ -121,35 +113,15 @@ export function AssetCatalogEditor({
       setError("An option needs a value.");
       return;
     }
-    const rawPrice = priceEdits[option.id];
-    const parsed = rawPrice === undefined ? undefined : parsePriceInput(rawPrice);
-    if (rawPrice !== undefined && parsed === undefined) {
-      setError("Prices must be numbers (leave empty to clear).");
-      return;
-    }
 
     setBusy(option.id);
     setError("");
     try {
-      const patch: {
-        value: string;
-        price?: number | null;
-        raw_price?: string | null;
-      } = { value };
-      if (rawPrice !== undefined && parsed !== undefined) {
-        patch.price = parsed;
-        patch.raw_price = null;
-      }
       const { error: updateError } = await supabase
         .from("catalog_options")
-        .update(patch)
+        .update({ value })
         .eq("id", option.id);
       if (updateError) throw updateError;
-      setPriceEdits((prev) => {
-        const next = { ...prev };
-        delete next[option.id];
-        return next;
-      });
       setValueEdits((prev) => {
         const next = { ...prev };
         delete next[option.id];
@@ -339,9 +311,8 @@ export function AssetCatalogEditor({
         </p>
       )}
 
-      {full && (
-        <Card className="space-y-3 p-5">
-          <div className="flex flex-wrap items-end gap-3">
+      <Card className="space-y-3 p-5">
+        <div className="flex flex-wrap items-end gap-3">
             <div className="min-w-56 flex-1">
               <label className="mb-1 block text-xs font-semibold text-zinc-500">
                 Asset name
@@ -414,8 +385,7 @@ export function AssetCatalogEditor({
               price column: {priceLabel}
             </span>
           </div>
-        </Card>
-      )}
+      </Card>
 
       {asset.levels.length === 0 && (
         <p className="rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-800">
@@ -434,40 +404,34 @@ export function AssetCatalogEditor({
           >
             <div className="flex flex-wrap items-center justify-between gap-2 border-b border-zinc-100 bg-zinc-50 px-4 py-2.5">
               <div className="flex items-center gap-2">
-                {full ? (
-                  <input
-                    className="w-52 rounded border border-zinc-300 px-2 py-1 text-xs font-bold"
-                    defaultValue={level.label}
-                    onBlur={(e) => {
-                      const value = e.target.value.trim();
-                      if (value && value !== level.label) {
-                        void renameLevel(level.level_no, value);
-                      }
-                    }}
-                    aria-label={`Level ${level.level_no} name`}
-                  />
-                ) : (
-                  <span className="text-xs font-bold text-zinc-800">{level.label}</span>
-                )}
+                <input
+                  className="w-52 rounded border border-zinc-300 px-2 py-1 text-xs font-bold"
+                  defaultValue={level.label}
+                  onBlur={(e) => {
+                    const value = e.target.value.trim();
+                    if (value && value !== level.label) {
+                      void renameLevel(level.level_no, value);
+                    }
+                  }}
+                  aria-label={`Level ${level.level_no} name`}
+                />
                 <span className="text-[11px] text-zinc-400">
                   {options.length} option(s)
                 </span>
               </div>
-              {full && (
-                <button
-                  type="button"
-                  onClick={() => void removeLevel(level.level_no)}
-                  disabled={levelBusy}
-                  className="inline-flex items-center gap-1 rounded-lg px-2 py-1 text-xs font-semibold text-red-600 hover:bg-red-50 disabled:opacity-50"
-                >
-                  {levelBusy ? (
-                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                  ) : (
-                    <Trash2 className="h-3.5 w-3.5" />
-                  )}
-                  Remove level
-                </button>
-              )}
+              <button
+                type="button"
+                onClick={() => void removeLevel(level.level_no)}
+                disabled={levelBusy}
+                className="inline-flex items-center gap-1 rounded-lg px-2 py-1 text-xs font-semibold text-red-600 hover:bg-red-50 disabled:opacity-50"
+              >
+                {levelBusy ? (
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                ) : (
+                  <Trash2 className="h-3.5 w-3.5" />
+                )}
+                Remove level
+              </button>
             </div>
 
             <div className="divide-y divide-zinc-100">
@@ -481,12 +445,7 @@ export function AssetCatalogEditor({
                 const kids = childrenOf(asset, option.id).length;
                 const rowBusy = busy === option.id;
                 const value = valueEdits[option.id] ?? option.value;
-                const price =
-                  priceEdits[option.id] ??
-                  (option.price === null ? "" : String(option.price));
-                const dirty =
-                  valueEdits[option.id] !== undefined ||
-                  priceEdits[option.id] !== undefined;
+                const dirty = valueEdits[option.id] !== undefined;
                 return (
                   <div
                     key={option.id}
@@ -508,26 +467,9 @@ export function AssetCatalogEditor({
                       }
                       aria-label="Option value"
                     />
-                    {kids === 0 ? (
-                      <div className="flex items-center gap-1">
-                        <span className="text-[10px] font-semibold uppercase text-zinc-400">
-                          {priceLabel}
-                        </span>
-                        <input
-                          className="w-28 rounded-lg border border-zinc-300 px-2 py-1.5 text-sm"
-                          value={price}
-                          placeholder="no price"
-                          inputMode="decimal"
-                          onChange={(e) =>
-                            setPriceEdits((prev) => ({
-                              ...prev,
-                              [option.id]: e.target.value,
-                            }))
-                          }
-                          aria-label={priceLabel}
-                        />
-                      </div>
-                    ) : null}
+                    {kids > 0 && (
+                      <span className="text-[10px] text-zinc-400">{kids} value(s) under</span>
+                    )}
                     {dirty ? (
                       <button
                         type="button"
@@ -547,17 +489,15 @@ export function AssetCatalogEditor({
                         saved
                       </span>
                     ) : null}
-                    {full && (
-                      <button
-                        type="button"
-                        disabled={rowBusy}
-                        onClick={() => void removeOption(option)}
-                        className="rounded-lg p-1.5 text-zinc-400 hover:bg-red-50 hover:text-red-600"
-                        aria-label="Delete option"
-                      >
-                        <Trash2 className="h-3.5 w-3.5" />
-                      </button>
-                    )}
+                    <button
+                      type="button"
+                      disabled={rowBusy}
+                      onClick={() => void removeOption(option)}
+                      className="rounded-lg p-1.5 text-zinc-400 hover:bg-red-50 hover:text-red-600"
+                      aria-label="Delete option"
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </button>
                   </div>
                 );
               })}
@@ -602,13 +542,16 @@ export function AssetCatalogEditor({
         </div>
       )}
 
-      {!full && (
-        <Link
-          href={`/dashboard/catalog/${asset.id}`}
-          className="inline-flex items-center gap-1 text-xs font-semibold text-amber-700 hover:underline"
-        >
-          Open full editor <ChevronRight className="h-3.5 w-3.5" />
-        </Link>
+      {asset.levels.length > 0 && (
+        <div className="space-y-2">
+          <div>
+            <h2 className="text-sm font-bold text-zinc-900">Price sheet</h2>
+            <p className="text-xs text-zinc-500">
+              One row per combination — type the {priceLabel} in the last column.
+            </p>
+          </div>
+          <CatalogCombinations asset={asset} />
+        </div>
       )}
     </div>
   );

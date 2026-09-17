@@ -20,6 +20,7 @@ lights, stop lights, road lamps and more.
 - Email/password auth with two roles: **ADMIN** and **INSPECTOR**
 - **Tasks page** (`/dashboard/tasks`): import CSV/Excel batches + list all imported tasks with progress
 - **Task import** (CSV/Excel): `No, ID-Inventory, Position_X(lng), Position_Y(lat), Price, Type, Remarks`
+- **CSV export** (mobile *Task* tab and the dashboard *Tasks* page): the inspected markers **or the full report history** — every row carries the marker (No, code, ID-Inventory, task, location, status), the category, each level value, the labelled catalog path, the price + source, condition, working, remarks, timestamp, inspector, photo URL, inspection id and coordinates
 - **Map dashboard** (desktop): map always visible under the header — colored markers (🔵 not inspected · 🟢 working · 🔴 not working), task selector, total price + asset distribution panel, status panel
 - **Mobile app** with 4 tabs — Map · Task · Record · Profile — and a **QR-scanner/manual** inspection flow: ID-Inventory → photo → **asset → its values per level → price** (from the catalog, optional override) → working? → remarks
 - **Asset catalog** (`/dashboard/catalog`, admin): manage each asset, give it the named levels it needs (`KETERANGAN · ARM · WATT · TIANG`, or just `AMP` for a feeder pillar), edit the values and the price of each combination; importing the *Aset perabot jalan* sheet is a helper that only adds what is missing
@@ -199,13 +200,14 @@ Design points:
 - **Read = any signed-in user, write = admins** (`public.is_admin()`).
 
 ### Managing it — Dashboard → Catalog
-- The list shows each asset with its level names, option count and
-  `priced/combinations`; expand a row to edit values and prices inline
-  (`value | price`, empty = no price, `Save` per row).
-- **+ Add asset** takes a name and (optionally) its first level name.
-- **Open full editor** (or `/dashboard/catalog/<id>`) adds rename, sort order,
-  price heading, delete asset, add/rename/remove levels, per-row delete and
-  multi-line value entry (`8M | 8500`, `GAL 12000` …).
+- Every asset is listed with a **price sheet**: one row per combination, a column
+  per level and the price in the last column — the same shape as the spreadsheet
+  (`KETERANGAN | ARM | WATT | TIANG | HARGA`). Type in the price cell and press
+  **Save**; empty means *no price* (the inspector types it or skips it).
+- **Edit** (per asset) opens `/dashboard/catalog/<id>` for the structure: rename
+  the asset, change its price heading, add/rename/remove levels, add values under
+  a chosen parent, delete values and multi-line entry (`8M | 8500`, `GAL 12000` …).
+  The same price sheet sits underneath.
 - **Import Excel** is a *helper, not a reset*: matching assets (by name), levels
   (by number) and values (by parent + value) are **skipped**, only missing rows
   are inserted, and prices are only written on those new rows unless you tick
@@ -224,7 +226,7 @@ or type a number to override/fill it. Anything not in the catalog is recorded
 through **Lain-lain** with a manual description and optional price.
 
 Prices show up in the map drawer, the inspections list, the mobile records list
-and the task CSV export (`Price source` = `catalog` / `manual` / `none`).
+and the CSV exports (`Price source` = `catalog` / `manual` / `none`).
 
 ## Inspection photos
 

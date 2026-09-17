@@ -39,12 +39,16 @@ export const btnIcon = cn(
 export function Card({
   className,
   children,
+  id,
 }: {
   className?: string;
   children: ReactNode;
+  /** optional anchor id (e.g. to deep-link to one card) */
+  id?: string;
 }) {
   return (
     <div
+      id={id}
       className={cn(
         "rounded-xl border border-zinc-200 bg-white shadow-sm",
         className,

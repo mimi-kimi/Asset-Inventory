@@ -1,10 +1,11 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { CheckCircle2, Download, XCircle } from "lucide-react";
+import { CheckCircle2, Download, History, XCircle } from "lucide-react";
 import { cn } from "@/lib/format";
 import { markerState, MARKER_META } from "@/lib/marker";
 import { downloadFile } from "@/lib/format";
+import { buildInspectionCsv } from "@/lib/inspection-export";
 import type { AssetRow, TaskRow } from "@/lib/types";
 import { Card } from "@/components/ui";
 
@@ -13,9 +14,11 @@ const ACTIVE_KEY = "rat-active-task";
 export function TaskTabScreen({
   tasks,
   assets,
+  inspectorNames = {},
 }: {
   tasks: TaskRow[];
   assets: AssetRow[];
+  inspectorNames?: Record<string, string | null>;
 }) {
   const [activeTaskId, setActiveTaskId] = useState<string>(() => {
     if (typeof window === "undefined") return tasks[0]?.id ?? "";
@@ -40,62 +43,30 @@ export function TaskTabScreen({
     window.localStorage.setItem(ACTIVE_KEY, id);
   }
 
+  /* ---------- export: every field of the inspection ---------- */
+  const taskName = tasks.find((t) => t.id === activeTaskId)?.name ?? "";
+  const historyCount = inspected.reduce(
+    (total, asset) => total + (asset.inspections?.length ?? 0),
+    0,
+  );
+
+  function filenameBase() {
+    return (taskName || "task").replace(/[^\w-]+/g, "_");
+  }
+
+  /** one row per marker, latest report */
   function exportCsv() {
-    const header = [
-      "No",
-      "ID-Inventory",
-      "Asset",
-      "Level 2 value",
-      "Level 3 value",
-      "Level 4 value",
-      "Level 5 value",
-      "Level 6 value",
-      "Lain-lain",
-      "Remarks",
-      "Price",
-      "Price source",
-      "Working",
-      "Inspected At",
-      "Latitude",
-      "Longitude",
-    ];
-    const esc = (v: string | number | null | undefined) => {
-      if (v === null || v === undefined) return "";
-      const s = String(v);
-      return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
-    };
-    const rows = inspected.map((a) => {
-      const latest = a.inspections
-        ? [...a.inspections].sort((x, y) =>
-            y.inspected_at.localeCompare(x.inspected_at),
-          )[0]
-        : null;
-      return [
-        a.seq_no,
-        a.inventory_id,
-        latest?.asset_category ?? a.type_text ?? "",
-        latest?.l2,
-        latest?.l3,
-        latest?.l4,
-        latest?.l5,
-        latest?.l6,
-        latest?.other_description,
-        a.notes,
-        latest?.price ?? a.price,
-        latest ? (latest.price_manual ? "manual" : latest.price === null ? "none" : "catalog") : "",
-        latest ? (latest.functional ? "YES" : "NO") : "",
-        latest ? new Date(latest.inspected_at).toLocaleString() : "",
-        a.lat,
-        a.lng,
-      ]
-        .map(esc)
-        .join(",");
-    });
-    const csv = [header.join(","), ...rows].join("\n");
-    const task = tasks.find((t) => t.id === activeTaskId);
     downloadFile(
-      `${(task?.name ?? "task").replace(/[^\w-]+/g, "_")}-inspected.csv`,
-      csv,
+      `${filenameBase()}-inspected.csv`,
+      buildInspectionCsv({ assets: inspected, taskName, inspectorNames, mode: "latest" }),
+    );
+  }
+
+  /** one row per report — the full history of the task */
+  function exportHistory() {
+    downloadFile(
+      `${filenameBase()}-history.csv`,
+      buildInspectionCsv({ assets: inspected, taskName, inspectorNames, mode: "history" }),
     );
   }
 
@@ -153,14 +124,24 @@ export function TaskTabScreen({
       )}
 
       {inspected.length > 0 && (
-        <button
-          type="button"
-          onClick={exportCsv}
-          className="flex w-full items-center justify-center gap-2 rounded-xl bg-zinc-900 px-4 py-3 text-sm font-bold text-white active:scale-[0.99]"
-        >
-          <Download className="h-4 w-4" />
-          Export inspected data ({inspected.length}) as CSV
-        </button>
+        <div className="space-y-2">
+          <button
+            type="button"
+            onClick={exportCsv}
+            className="flex w-full items-center justify-center gap-2 rounded-xl bg-zinc-900 px-4 py-3 text-sm font-bold text-white active:scale-[0.99]"
+          >
+            <Download className="h-4 w-4" />
+            Export inspected data ({inspected.length}) as CSV
+          </button>
+          <button
+            type="button"
+            onClick={exportHistory}
+            className="flex w-full items-center justify-center gap-2 rounded-xl border border-zinc-300 bg-white px-4 py-3 text-sm font-bold text-zinc-700 active:scale-[0.99]"
+          >
+            <History className="h-4 w-4" />
+            Export full history ({historyCount} report{historyCount === 1 ? "" : "s"})
+          </button>
+        </div>
       )}
 
       {/* summary of current task */}

@@ -98,6 +98,10 @@ export interface AssetRow {
     id: string;
     functional: boolean;
     inspected_at: string;
+    condition?: Condition | null;
+    remarks?: string | null;
+    inspector_id?: string | null;
+    created_at?: string;
     photo_webp?: string | null;
     photo_url?: string | null;
     photo_path?: string | null;

@@ -53,7 +53,7 @@ export default async function CatalogAssetPage({
         </p>
       </div>
 
-      <AssetCatalogEditor asset={asset} mode="full" />
+      <AssetCatalogEditor asset={asset} />
     </div>
   );
 }

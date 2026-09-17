@@ -1,8 +1,9 @@
 "use client";
 
 import { useMemo, useRef, useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { ChevronRight, Layers, Loader2, Package, Plus, Upload } from "lucide-react";
+import { Layers, Loader2, Package, Pencil, Plus, Upload } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { buildTree, coverageOf } from "@/lib/catalog-tree";
 import { planCatalogMerge } from "@/lib/catalog-merge";
@@ -10,7 +11,7 @@ import type { CatalogMergePlan } from "@/lib/catalog-merge";
 import { parseCatalogFile } from "@/lib/catalog-import";
 import { cn, describeError } from "@/lib/format";
 import type { CatalogData } from "@/lib/types";
-import { AssetCatalogEditor } from "@/components/dashboard/catalog-editor";
+import { CatalogCombinations } from "@/components/dashboard/catalog-combinations";
 import { btnPrimary, btnSecondary, Card, EmptyState, inputCls, labelCls } from "@/components/ui";
 
 interface ImportReport {
@@ -39,9 +40,6 @@ export function CatalogManager({
   const supabase = createClient();
   const fileRef = useRef<HTMLInputElement | null>(null);
 
-  const [expanded, setExpanded] = useState<string[]>(
-    initialAssetId ? [initialAssetId] : [],
-  );
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
@@ -90,14 +88,6 @@ export function CatalogManager({
       .includes(needle);
   });
 
-  function toggle(assetId: string) {
-    setExpanded((prev) =>
-      prev.includes(assetId)
-        ? prev.filter((id) => id !== assetId)
-        : [...prev, assetId],
-    );
-  }
-
   async function addAsset() {
     const name = newName.trim();
     if (!name) {
@@ -125,8 +115,7 @@ export function CatalogManager({
       setNewName("");
       setNewLabel("");
       setAddOpen(false);
-      setExpanded((prev) => [...prev, id]);
-      setNotice(`"${name}" created — add its levels and options below.`);
+      setNotice(`"${name}" created — press Edit to add its levels and values.`);
       router.refresh();
     } catch (err) {
       setError(describeError(err, "Could not create the asset."));
@@ -505,30 +494,25 @@ export function CatalogManager({
       ) : (
         visibleAssets.map((asset) => {
           const cover = coverageOf(asset);
-          const open = expanded.includes(asset.id);
+          const highlighted = initialAssetId === asset.id;
           return (
-            <Card key={asset.id} className="overflow-hidden">
-              <button
-                type="button"
-                onClick={() => toggle(asset.id)}
-                className="flex w-full flex-wrap items-center justify-between gap-2 px-5 py-3 text-left transition-colors hover:bg-zinc-50"
-              >
+            <Card
+              key={asset.id}
+              id={asset.id}
+              className={cn(
+                "space-y-3 p-5",
+                highlighted && "ring-2 ring-amber-400 ring-offset-1",
+              )}
+            >
+              <div className="flex flex-wrap items-start justify-between gap-2">
                 <div className="min-w-0">
-                  <p className="flex items-center gap-2 text-sm font-bold text-zinc-900">
-                    <ChevronRight
-                      className={cn(
-                        "h-4 w-4 text-zinc-400 transition-transform",
-                        open && "rotate-90",
-                      )}
-                    />
-                    {asset.name}
-                  </p>
+                  <p className="text-sm font-bold text-zinc-900">{asset.name}</p>
                   <p className="truncate text-xs text-zinc-500">
                     {asset.levels.map((level) => level.label).join(" · ") ||
-                      "No levels yet"}
+                      "No levels yet — press Edit to add them"}
                   </p>
                 </div>
-                <div className="flex items-center gap-2 text-xs">
+                <div className="flex flex-wrap items-center gap-2 text-xs">
                   <span className="rounded-full bg-zinc-100 px-2.5 py-1 text-zinc-600">
                     {asset.options.length} option(s)
                   </span>
@@ -542,13 +526,13 @@ export function CatalogManager({
                   >
                     {cover.priced}/{cover.combinations} priced
                   </span>
+                  <Link href={`/dashboard/catalog/${asset.id}`} className={btnSecondary}>
+                    <Pencil className="h-3.5 w-3.5" /> Edit
+                  </Link>
                 </div>
-              </button>
-              {open && (
-                <div className="border-t border-zinc-100 px-5 py-4">
-                  <AssetCatalogEditor asset={asset} mode="compact" />
-                </div>
-              )}
+              </div>
+
+              <CatalogCombinations asset={asset} />
             </Card>
           );
         })

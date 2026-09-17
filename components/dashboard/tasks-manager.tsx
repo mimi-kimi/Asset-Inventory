@@ -4,7 +4,7 @@ import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { CalendarDays, Download, ListChecks, Plus, Trash2 } from "lucide-react";
 import { describeError, downloadFile, fmtDate } from "@/lib/format";
-import { buildInspectionCsv } from "@/lib/inspection-export";
+import { exportInspectionsCsv } from "@/lib/actions/export";
 import type { AssetRow, TaskRow } from "@/lib/types";
 import { createClient } from "@/lib/supabase/client";
 import { Card, EmptyState } from "@/components/ui";
@@ -14,14 +14,19 @@ export function TasksManager({
   tasks,
   assets,
   isAdmin,
+  canExport,
 }: {
   tasks: TaskRow[];
   assets: AssetRow[];
   isAdmin: boolean;
+  /** exporting the CSV is an admin tool (inspectors only record on the phone) */
+  canExport: boolean;
 }) {
   const router = useRouter();
   const [importOpen, setImportOpen] = useState(false);
   const [busyDelete, setBusyDelete] = useState<string | null>(null);
+  /** id of the task whose CSV is being built right now */
+  const [exporting, setExporting] = useState("");
   const [error, setError] = useState("");
 
   const rows = useMemo(
@@ -37,20 +42,29 @@ export function TasksManager({
   );
 
   /**
-   * Downloads the task's markers with every field of their inspection.
-   * Markers that have not been inspected yet are listed too (blank report
-   * columns), so the sheet doubles as the task checklist.
+   * Downloads the task's markers with every field of their inspection. The CSV
+   * is built on the server (the action refuses non-admins) so exporting is a
+   * real capability rather than a hidden button. Markers that have not been
+   * inspected yet are listed too (blank report columns), so the sheet doubles as
+   * the task checklist.
    */
-  function exportTask(task: TaskRow) {
-    const taskAssets = assets.filter((a) => a.task_id === task.id);
-    downloadFile(
-      `${task.name.replace(/[^\w-]+/g, "_")}-inspections.csv`,
-      buildInspectionCsv({
-        assets: taskAssets,
+  async function exportTask(task: TaskRow) {
+    setExporting(task.id);
+    setError("");
+    try {
+      const res = await exportInspectionsCsv({
+        taskId: task.id,
         mode: "latest",
-        skipUninspected: false,
-      }),
-    );
+        includeUninspected: true,
+      });
+      if (!res.ok || !res.csv) {
+        setError(res.error ?? "Could not build the export.");
+        return;
+      }
+      downloadFile(res.filename ?? "task-inspections.csv", res.csv);
+    } finally {
+      setExporting("");
+    }
   }
 
   async function deleteTask(id: string, name: string) {
@@ -157,20 +171,24 @@ export function TasksManager({
                   </td>
                   <td className="px-5 py-3 text-right">
                     <div className="flex items-center justify-end gap-1">
-                      <button
-                        type="button"
-                        disabled={t.markers === 0}
-                        onClick={() => exportTask(t)}
-                        title={
-                          t.markers === 0
-                            ? "This task has no markers"
-                            : "Download this task's inspections as CSV"
-                        }
-                        className="inline-flex items-center gap-1 rounded-lg px-2.5 py-1.5 text-sm font-semibold text-amber-700 hover:bg-amber-50 disabled:opacity-40"
-                      >
-                        <Download className="h-4 w-4" />
-                        Export
-                      </button>
+                      {canExport ? (
+                        <button
+                          type="button"
+                          disabled={t.markers === 0 || exporting === t.id}
+                          onClick={() => exportTask(t)}
+                          title={
+                            t.markers === 0
+                              ? "This task has no markers"
+                              : "Download this task's inspections as CSV"
+                          }
+                          className="inline-flex items-center gap-1 rounded-lg px-2.5 py-1.5 text-sm font-semibold text-amber-700 hover:bg-amber-50 disabled:opacity-40"
+                        >
+                          <Download className="h-4 w-4" />
+                          {exporting === t.id ? "Preparing…" : "Export"}
+                        </button>
+                      ) : (
+                        <span className="text-xs text-zinc-400">View only</span>
+                      )}
                       {isAdmin && (
                         <button
                           type="button"

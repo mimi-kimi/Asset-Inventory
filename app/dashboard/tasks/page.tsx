@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { requireViewer } from "@/lib/auth";
 import { describeError } from "@/lib/format";
+import { canExportData } from "@/lib/roles";
 import { queryTaskAssets, queryTasks } from "@/lib/queries";
 import { TasksManager } from "@/components/dashboard/tasks-manager";
 
@@ -28,5 +29,5 @@ export default async function DashboardTasksPage() {
     );
   }
 
-  return <TasksManager tasks={tasks} assets={assets} isAdmin={isAdmin} />;
+  return <TasksManager tasks={tasks} assets={assets} isAdmin={isAdmin} canExport={canExportData(viewer.profile.role)} />;
 }

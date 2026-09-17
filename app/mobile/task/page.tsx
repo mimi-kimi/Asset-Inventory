@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { requireViewer } from "@/lib/auth";
 import { describeError } from "@/lib/format";
+import { canExportData } from "@/lib/roles";
 import { queryTaskAssets, queryTasks } from "@/lib/queries";
 import { TaskTabScreen } from "@/components/mobile/task-tab-screen";
 
@@ -8,7 +9,7 @@ export const dynamic = "force-dynamic";
 export const metadata: Metadata = { title: "Tasks" };
 
 export default async function MobileTaskPage() {
-  await requireViewer();
+  const viewer = await requireViewer();
 
   let dbError: string | null = null;
   let tasks: Awaited<ReturnType<typeof queryTasks>> = [];
@@ -27,5 +28,11 @@ export default async function MobileTaskPage() {
     );
   }
 
-  return <TaskTabScreen tasks={tasks} assets={assets} />;
+  return (
+    <TaskTabScreen
+      tasks={tasks}
+      assets={assets}
+      canExport={canExportData(viewer.profile.role)}
+    />
+  );
 }

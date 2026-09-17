@@ -97,13 +97,15 @@ export async function queryTasks(): Promise<TaskRow[]> {
  * All task/import assets with their inspection history embedded.
  * Marker colors are derived in code from inspections.
  */
+/** Columns the mobile/dashboard screens need per marker (with its report history). */
+export const TASK_ASSET_COLUMNS =
+  "*, tasks(id, name), inspections(id, inspected_at, condition, functional, remarks, inspector_id, created_at, photo_url, price, price_manual, catalog_asset_id, asset_category, catalog_path, l2, l3, l4, l5, l6, other_description)";
+
 export async function queryTaskAssets(): Promise<AssetRow[]> {
   const supabase = await createClient();
   const { data, error } = await supabase
     .from("assets")
-    .select(
-      "*, tasks(id, name), inspections(id, inspected_at, condition, functional, remarks, inspector_id, created_at, photo_url, price, price_manual, catalog_asset_id, asset_category, catalog_path, l2, l3, l4, l5, l6, other_description)",
-    )
+    .select(TASK_ASSET_COLUMNS)
     .not("task_id", "is", null)
     .order("created_at", { ascending: false })
     .limit(20000);

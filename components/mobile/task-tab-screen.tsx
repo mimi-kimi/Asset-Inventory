@@ -1,11 +1,11 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { CheckCircle2, Download, History, XCircle } from "lucide-react";
+import { CheckCircle2, Download, History, Loader2, XCircle } from "lucide-react";
 import { cn } from "@/lib/format";
 import { markerState, MARKER_META } from "@/lib/marker";
 import { downloadFile } from "@/lib/format";
-import { buildInspectionCsv } from "@/lib/inspection-export";
+import { exportInspectionsCsv } from "@/lib/actions/export";
 import type { AssetRow, TaskRow } from "@/lib/types";
 import { Card } from "@/components/ui";
 
@@ -14,9 +14,12 @@ const ACTIVE_KEY = "rat-active-task";
 export function TaskTabScreen({
   tasks,
   assets,
+  canExport,
 }: {
   tasks: TaskRow[];
   assets: AssetRow[];
+  /** exporting a task's CSV / the report history is an admin tool */
+  canExport: boolean;
 }) {
   const [activeTaskId, setActiveTaskId] = useState<string>(() => {
     if (typeof window === "undefined") return tasks[0]?.id ?? "";
@@ -24,6 +27,8 @@ export function TaskTabScreen({
     if (stored && tasks.some((t) => t.id === stored)) return stored;
     return tasks[0]?.id ?? "";
   });
+  const [exporting, setExporting] = useState(false);
+  const [error, setError] = useState("");
 
   const taskAssets = useMemo(
     () => assets.filter((a) => a.task_id === activeTaskId),
@@ -52,20 +57,24 @@ export function TaskTabScreen({
     return (taskName || "task").replace(/[^\w-]+/g, "_");
   }
 
-  /** one row per marker, latest report */
-  function exportCsv() {
-    downloadFile(
-      `${filenameBase()}-inspected.csv`,
-      buildInspectionCsv({ assets: inspected, mode: "latest" }),
-    );
-  }
-
-  /** one row per report — the full history of the task */
-  function exportHistory() {
-    downloadFile(
-      `${filenameBase()}-history.csv`,
-      buildInspectionCsv({ assets: inspected, mode: "history" }),
-    );
+  /** both exports are built by the server action (admins only) */
+  async function runExport(mode: "latest" | "history") {
+    if (!activeTaskId) return;
+    setExporting(true);
+    setError("");
+    try {
+      const res = await exportInspectionsCsv({ taskId: activeTaskId, mode });
+      if (!res.ok || !res.csv) {
+        setError(res.error ?? "Could not build the export.");
+        return;
+      }
+      downloadFile(
+        res.filename ?? `${filenameBase()}-${mode === "history" ? "history" : "inspected"}.csv`,
+        res.csv,
+      );
+    } finally {
+      setExporting(false);
+    }
   }
 
   return (
@@ -121,7 +130,14 @@ export function TaskTabScreen({
         </ul>
       )}
 
-      {activeTaskId && (
+      {activeTaskId && !canExport && (
+        <p className="rounded-xl border border-zinc-200 bg-white px-3 py-2.5 text-xs text-zinc-500">
+          Exporting is done by an admin — on a computer, open the dashboard and use{" "}
+          <span className="font-semibold text-zinc-600">Tasks → Export</span>.
+        </p>
+      )}
+
+      {activeTaskId && canExport && (
         <div className="space-y-2">
           <p className="px-1 text-xs text-zinc-500">
             The CSV covers this task’s reports from every account, including photos
@@ -129,22 +145,31 @@ export function TaskTabScreen({
           </p>
           <button
             type="button"
-            onClick={exportCsv}
-            disabled={inspected.length === 0}
+            onClick={() => void runExport("latest")}
+            disabled={exporting || inspected.length === 0}
             className="flex w-full items-center justify-center gap-2 rounded-xl bg-zinc-900 px-4 py-3 text-sm font-bold text-white active:scale-[0.99] disabled:cursor-not-allowed disabled:bg-zinc-300 disabled:text-zinc-500"
           >
-            <Download className="h-4 w-4" />
-            Export inspected data ({inspected.length}) as CSV
+            {exporting ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <Download className="h-4 w-4" />
+            )}
+            {exporting ? "Preparing…" : `Export inspected data (${inspected.length}) as CSV`}
           </button>
           <button
             type="button"
-            onClick={exportHistory}
-            disabled={historyCount === 0}
+            onClick={() => void runExport("history")}
+            disabled={exporting || historyCount === 0}
             className="flex w-full items-center justify-center gap-2 rounded-xl border border-zinc-300 bg-white px-4 py-3 text-sm font-bold text-zinc-700 active:scale-[0.99] disabled:cursor-not-allowed disabled:border-zinc-200 disabled:text-zinc-400"
           >
             <History className="h-4 w-4" />
             Export full history ({historyCount} report{historyCount === 1 ? "" : "s"})
           </button>
+          {error && (
+            <p className="rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700">
+              {error}
+            </p>
+          )}
           {inspected.length === 0 && (
             <p className="rounded-xl bg-zinc-100 px-3 py-2 text-xs text-zinc-500">
               Nothing to export yet — the export lists the markers of this task that

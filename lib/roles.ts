@@ -68,6 +68,14 @@ export function roleChangeError(input: RoleChangeCheck): string | null {
 
 
 /**
+ * Downloading data — a task's CSV or the report history — is an admin tool:
+ * inspectors record on the phone and export is done from the dashboard.
+ */
+export function canExportData(role: Role | null | undefined): boolean {
+  return role === "ADMIN";
+}
+
+/**
  * A report belongs to the person who recorded it: only they — or an admin — may
  * change it. Everyone else reads it and can add a report of their own (mirrors
  * the "update inspections" policy in migration_v10).

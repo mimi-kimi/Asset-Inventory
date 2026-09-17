@@ -3,7 +3,7 @@
 import { useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Layers, Loader2, Package, Pencil, Plus, Upload } from "lucide-react";
+import { ChevronRight, Layers, Loader2, Package, Pencil, Plus, Upload } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { buildTree, coverageOf } from "@/lib/catalog-tree";
 import { planCatalogMerge } from "@/lib/catalog-merge";
@@ -54,6 +54,17 @@ export function CatalogManager({
   const [refreshPrices, setRefreshPrices] = useState(false);
   const [search, setSearch] = useState("");
   const [onlyMissing, setOnlyMissing] = useState(false);
+
+  /** asset cards whose price sheet is expanded (collapsed by default) */
+  const [openIds, setOpenIds] = useState<string[]>(
+    initialAssetId ? [initialAssetId] : [],
+  );
+
+  function toggleAsset(id: string) {
+    setOpenIds((prev) =>
+      prev.includes(id) ? prev.filter((value) => value !== id) : [...prev, id],
+    );
+  }
 
   const tree = useMemo(() => buildTree(catalog), [catalog]);
   const totals = useMemo(() => {
@@ -495,23 +506,40 @@ export function CatalogManager({
         visibleAssets.map((asset) => {
           const cover = coverageOf(asset);
           const highlighted = initialAssetId === asset.id;
+          const open = openIds.includes(asset.id);
           return (
             <Card
               key={asset.id}
               id={asset.id}
               className={cn(
-                "space-y-3 p-5",
+                "overflow-hidden",
                 highlighted && "ring-2 ring-amber-400 ring-offset-1",
               )}
             >
-              <div className="flex flex-wrap items-start justify-between gap-2">
-                <div className="min-w-0">
-                  <p className="text-sm font-bold text-zinc-900">{asset.name}</p>
-                  <p className="truncate text-xs text-zinc-500">
-                    {asset.levels.map((level) => level.label).join(" · ") ||
-                      "No levels yet — press Edit to add them"}
-                  </p>
-                </div>
+              <div className="flex flex-wrap items-center justify-between gap-2 px-5 py-3">
+                <button
+                  type="button"
+                  onClick={() => toggleAsset(asset.id)}
+                  aria-expanded={open}
+                  className="flex min-w-0 flex-1 items-center gap-2 text-left"
+                >
+                  <ChevronRight
+                    className={cn(
+                      "h-4 w-4 shrink-0 text-zinc-400 transition-transform",
+                      open && "rotate-90",
+                    )}
+                  />
+                  <span className="min-w-0">
+                    <span className="block text-sm font-bold text-zinc-900">
+                      {asset.name}
+                    </span>
+                    <span className="block truncate text-xs text-zinc-500">
+                      {asset.levels.map((level) => level.label).join(" · ") ||
+                        "No levels yet — press Edit to add them"}
+                    </span>
+                  </span>
+                </button>
+
                 <div className="flex flex-wrap items-center gap-2 text-xs">
                   <span className="rounded-full bg-zinc-100 px-2.5 py-1 text-zinc-600">
                     {asset.options.length} option(s)
@@ -532,7 +560,11 @@ export function CatalogManager({
                 </div>
               </div>
 
-              <CatalogCombinations asset={asset} />
+              {open && (
+                <div className="border-t border-zinc-100 px-5 pb-5 pt-4">
+                  <CatalogCombinations asset={asset} />
+                </div>
+              )}
             </Card>
           );
         })

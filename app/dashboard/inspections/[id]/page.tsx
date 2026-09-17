@@ -4,7 +4,12 @@ import { notFound } from "next/navigation";
 import { ArrowLeft, CheckCircle2, MapPin, XCircle } from "lucide-react";
 import { requireViewer } from "@/lib/auth";
 import { queryInspectionById, fetchInspectorNames } from "@/lib/queries";
-import { CONDITION_META, describeError, fmtCoords, fmtDateTime } from "@/lib/format";
+import {
+  conditionMeta,
+  describeError,
+  fmtCoords,
+  fmtDateTime,
+} from "@/lib/format";
 import { Card, CardHeader } from "@/components/ui";
 import { PhotoGrid } from "@/components/photo-grid";
 
@@ -33,7 +38,7 @@ export default async function InspectionDetailPage({
   }
   if (dbError || !inspection) notFound();
 
-  const meta = CONDITION_META[inspection.condition];
+  const meta = conditionMeta(inspection.condition);
   const asset = inspection.assets;
   const photos = inspection.inspection_photos ?? [];
 

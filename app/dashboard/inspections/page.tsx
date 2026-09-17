@@ -3,7 +3,14 @@ import Link from "next/link";
 import { ClipboardList } from "lucide-react";
 import { requireViewer } from "@/lib/auth";
 import { queryInspections, fetchInspectorNames } from "@/lib/queries";
-import { CONDITION_META, describeError, fmtDateTime } from "@/lib/format";
+import {
+  CONDITION_META,
+  CONDITION_ORDER,
+  conditionMeta,
+  describeError,
+  fmtDateTime,
+  normalizeCondition,
+} from "@/lib/format";
 import type { InspectionRow } from "@/lib/types";
 import { Badge, EmptyState } from "@/components/ui";
 
@@ -44,7 +51,7 @@ export default async function InspectionsPage({
     rows = rows.filter((i) => i.functional === functionalFilter);
   }
   const needsAttention = rows.filter(
-    (i) => !i.functional || ["POOR", "DAMAGED", "NOT_FUNCTIONAL"].includes(i.condition),
+    (i) => !i.functional || normalizeCondition(i.condition) === "BAD",
   ).length;
 
   return (
@@ -89,9 +96,9 @@ export default async function InspectionsPage({
             className="rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm shadow-sm"
           >
             <option value="">All conditions</option>
-            {Object.entries(CONDITION_META).map(([key, meta]) => (
+            {CONDITION_ORDER.map((key) => (
               <option key={key} value={key}>
-                {meta.label}
+                {CONDITION_META[key].label}
               </option>
             ))}
           </select>
@@ -191,8 +198,8 @@ export default async function InspectionsPage({
                     )}
                   </td>
                   <td className="px-5 py-3">
-                    <Badge className={CONDITION_META[i.condition].badge}>
-                      {CONDITION_META[i.condition].label}
+                    <Badge className={conditionMeta(i.condition).badge}>
+                      {conditionMeta(i.condition).label}
                     </Badge>
                   </td>
                   <td className="px-5 py-3">

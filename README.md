@@ -22,7 +22,7 @@ lights, stop lights, road lamps and more.
 - **Task import** (CSV/Excel): `No, ID-Inventory, Position_X(lng), Position_Y(lat), Price, Type, Remarks`
 - **CSV export** (mobile *Task* tab and the dashboard *Tasks* page): the inspected markers **or the full report history** — columns: `No · ID-Inventory · Photo URL · Latitude · Longitude · Category · L2 · L3 · L4 · L5 · Catalog path · Lain-lain · Price · Condition · Working · Remarks · Inspected at`
 - **Map dashboard** (desktop): map always visible under the header — colored markers (🔵 not inspected · 🟢 working · 🔴 not working), task selector, total price + asset distribution panel, status panel
-- **Mobile app** with 4 tabs — Map · Task · Record · Profile — and a **QR-scanner/manual** inspection flow: ID-Inventory → photo → **asset → its values per level → price** (from the catalog, optional override) → working? → remarks
+- **Mobile app** with 4 tabs — Map · Task · Record · Profile — and a **QR-scanner/manual** inspection flow: ID-Inventory → photo → **asset → its values per level → price** (from the catalog, optional override) → **working? and condition (Good / Fair / Bad)** → remarks
 - **Asset catalog** (`/dashboard/catalog`, admin): manage each asset, give it the named levels it needs (`KETERANGAN · ARM · WATT · TIANG`, or just `AMP` for a feeder pillar), edit the values and the price of each combination; importing the *Aset perabot jalan* sheet is a helper that only adds what is missing
 - **Desktop header “Mobile” button** opens the inspector app; mobile users get
   back to the dashboard from *Profile → Open desktop dashboard*
@@ -48,8 +48,9 @@ supabase/schema.sql   one-time database setup
    `supabase/migration_v3.sql` (inspection photo column),
    `supabase/migration_v4.sql` (username login + admin-managed users) and
    `supabase/migration_v5.sql` (asset catalog + inspection snapshot columns),
-   `supabase/migration_v6.sql` (photo bucket + photo_url/photo_path) and
-   `supabase/migration_v7.sql` (retire the old asset types).
+   `supabase/migration_v6.sql` (photo bucket + photo_url/photo_path),
+   `supabase/migration_v7.sql` (retire the old asset types) and
+   `supabase/migration_v8.sql` (condition = Good / Fair / Bad).
    A sample import file lives at `public/sample-task.csv`.
 3. **Disable self sign-up** — Supabase → *Authentication → Providers → Email* →
    turn **off** "Allow new users to sign up". Accounts are created by admins only.
@@ -224,6 +225,10 @@ The **Asset** step shows the asset buttons → chips for each level the asset de
 price heading (`HARGA`). A price is **skipped by default**: leave the box empty,
 or type a number to override/fill it. Anything not in the catalog is recorded
 through **Lain-lain** with a manual description and optional price.
+
+The last step records the **working / not working** status, then the **condition**
+(**Good · Fair · Bad**, default Good) and free-text remarks. Older records that used
+the previous five-value scale are folded onto Good/Fair/Bad when they are opened.
 
 Prices show up in the map drawer, the inspections list, the mobile records list
 and the CSV exports (the drawer and lists tag a price that was typed on site as

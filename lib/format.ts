@@ -4,13 +4,7 @@ export function cn(...parts: Array<string | false | null | undefined>): string {
   return parts.filter(Boolean).join(" ");
 }
 
-export const CONDITION_ORDER: Condition[] = [
-  "GOOD",
-  "FAIR",
-  "POOR",
-  "DAMAGED",
-  "NOT_FUNCTIONAL",
-];
+export const CONDITION_ORDER: Condition[] = ["GOOD", "FAIR", "BAD"];
 
 export const CONDITION_META: Record<
   Condition,
@@ -25,33 +19,36 @@ export const CONDITION_META: Record<
   },
   FAIR: {
     label: "Fair",
-    badge: "bg-lime-100 text-lime-800",
-    dot: "bg-lime-500",
-    hex: "#84cc16",
-    emoji: "👍",
-  },
-  POOR: {
-    label: "Poor",
     badge: "bg-amber-100 text-amber-800",
     dot: "bg-amber-500",
     hex: "#f59e0b",
     emoji: "⚠️",
   },
-  DAMAGED: {
-    label: "Damaged",
-    badge: "bg-orange-100 text-orange-800",
-    dot: "bg-orange-500",
-    hex: "#f97316",
-    emoji: "🔧",
-  },
-  NOT_FUNCTIONAL: {
-    label: "Not functional",
+  BAD: {
+    label: "Bad",
     badge: "bg-red-100 text-red-700",
     dot: "bg-red-500",
     hex: "#ef4444",
     emoji: "⛔",
   },
 };
+
+/**
+ * Older records were stored on the five-value scale (POOR / DAMAGED /
+ * NOT_FUNCTIONAL). Fold those onto the current Good/Fair/Bad choice so old rows
+ * keep rendering and can be edited safely.
+ */
+export function normalizeCondition(value: string | null | undefined): Condition {
+  const key = (value ?? "").trim().toUpperCase();
+  if (key === "GOOD" || key === "FAIR" || key === "BAD") return key;
+  if (key === "POOR" || key === "DAMAGED" || key === "NOT_FUNCTIONAL") return "BAD";
+  return "FAIR";
+}
+
+/** Badge/label/colour for a condition value, tolerating legacy rows. */
+export function conditionMeta(value: string | null | undefined) {
+  return CONDITION_META[normalizeCondition(value)];
+}
 
 export function fmtDate(value: string | null | undefined): string {
   if (!value) return "—";

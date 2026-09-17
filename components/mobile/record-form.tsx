@@ -9,13 +9,14 @@ import { PHOTO_BUCKET } from "@/lib/env";
 import { fileToWebpBlob } from "@/lib/image";
 import { deleteInspectionPhoto, uploadInspectionPhoto } from "@/lib/storage";
 import type { UploadedPhoto } from "@/lib/storage";
-import { cn } from "@/lib/format";
+import { CONDITION_META, CONDITION_ORDER, cn, normalizeCondition } from "@/lib/format";
 import type {
   AssetRow,
   CatalogAssetRow,
   CatalogData,
   CatalogLevelRow,
   CatalogOptionRow,
+  Condition,
   InspectionRow,
 } from "@/lib/types";
 import {
@@ -69,6 +70,9 @@ export function RecordForm({
   /** true once the inspector removed the photo (so legacy base64 is dropped too) */
   const [photoCleared, setPhotoCleared] = useState(false);
   const [working, setWorking] = useState(inspection?.functional ?? true);
+  const [condition, setCondition] = useState<Condition>(() =>
+    normalizeCondition(inspection?.condition),
+  );
   const [remarks, setRemarks] = useState(inspection?.remarks ?? "");
 
   /* ---------- catalog: assets → levels → values (+ the price of a combination) ---------- */
@@ -363,9 +367,7 @@ export function RecordForm({
 
       const base = {
         functional: working,
-        condition: (working ? "GOOD" : "NOT_FUNCTIONAL") as
-          | "GOOD"
-          | "NOT_FUNCTIONAL",
+        condition,
         remarks: remarks.trim() || null,
         ...photoFields,
       };
@@ -777,6 +779,28 @@ export function RecordForm({
                 ⛔ Not working
               </button>
             </div>
+
+            <div className="space-y-2 border-t border-zinc-100 pt-3">
+              <p className="text-sm font-bold text-zinc-900">Condition</p>
+              <div className="grid grid-cols-3 gap-2">
+                {CONDITION_ORDER.map((key) => (
+                  <button
+                    key={key}
+                    type="button"
+                    onClick={() => setCondition(key)}
+                    className={cn(
+                      "rounded-xl border-2 px-2 py-3 text-sm font-bold transition-colors",
+                      condition === key
+                        ? "border-amber-500 bg-amber-50 text-zinc-900"
+                        : "border-zinc-200 text-zinc-500 hover:border-zinc-300",
+                    )}
+                  >
+                    <span className="block text-lg">{CONDITION_META[key].emoji}</span>
+                    {CONDITION_META[key].label}
+                  </button>
+                ))}
+              </div>
+            </div>
           </Card>
 
           <Card className="space-y-3 p-5">
@@ -816,6 +840,18 @@ export function RecordForm({
               <span className="text-zinc-500">{priceLabel}</span>
               <span className="text-right font-bold text-zinc-900">
                 {effectivePrice !== null ? money(effectivePrice) : "Skipped"}
+              </span>
+            </div>
+            <div className="flex justify-between gap-3">
+              <span className="text-zinc-500">Working</span>
+              <span className="text-right text-zinc-800">
+                {working ? "Yes" : "No"}
+              </span>
+            </div>
+            <div className="flex justify-between gap-3">
+              <span className="text-zinc-500">Condition</span>
+              <span className="text-right font-semibold text-zinc-800">
+                {CONDITION_META[condition].emoji} {CONDITION_META[condition].label}
               </span>
             </div>
           </Card>

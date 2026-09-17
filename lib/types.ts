@@ -1,11 +1,6 @@
 export type Role = "ADMIN" | "INSPECTOR";
 export type AssetStatus = "ACTIVE" | "INACTIVE";
-export type Condition =
-  | "GOOD"
-  | "FAIR"
-  | "POOR"
-  | "DAMAGED"
-  | "NOT_FUNCTIONAL";
+export type Condition = "GOOD" | "FAIR" | "BAD";
 
 export interface Profile {
   id: string;

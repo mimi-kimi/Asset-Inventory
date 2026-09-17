@@ -5,7 +5,7 @@ import { requireViewer } from "@/lib/auth";
 import { describeError, fmtDateTime } from "@/lib/format";
 import { queryMyInspections } from "@/lib/queries";
 import { EmptyState, Badge } from "@/components/ui";
-import { CONDITION_META } from "@/lib/format";
+import { conditionMeta } from "@/lib/format";
 
 export const dynamic = "force-dynamic";
 export const metadata: Metadata = { title: "Records" };
@@ -55,7 +55,7 @@ export default async function MobileRecordPage() {
       ) : (
         <ul className="space-y-2">
           {records.map((i) => {
-            const meta = CONDITION_META[i.condition];
+            const meta = conditionMeta(i.condition);
             return (
               <li key={i.id}>
                 <Link

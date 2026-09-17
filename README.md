@@ -21,7 +21,8 @@ lights, stop lights, road lamps and more.
 - **Tasks page** (`/dashboard/tasks`): import CSV/Excel batches + list all imported tasks with progress
 - **Task import** (CSV/Excel): `No, ID-Inventory, Position_X(lng), Position_Y(lat), Price, Type, Remarks`
 - **Map dashboard** (desktop): map always visible under the header — colored markers (🔵 not inspected · 🟢 working · 🔴 not working), task selector, total price + asset distribution panel, status panel
-- **Mobile app** with 4 tabs — Map · Task · Record · Profile — and a **QR-scanner/manual** inspection flow (plate ID → asset type → working? → remarks)
+- **Mobile app** with 4 tabs — Map · Task · Record · Profile — and a **QR-scanner/manual** inspection flow: ID-Inventory → photo → **L1 asset → L2–L5 options → L6 price** (auto-filled, manual or skipped) → working? → remarks
+- **Price catalog** (admin, `/dashboard/catalog`): import *Aset perabot jalan* Excel (L1 asset → L2–L5 selectable values → L6 price) and pick it from the phone
 - **Desktop header “Mobile” button** opens the inspector app; mobile users get
   back to the dashboard from *Profile → Open desktop dashboard*
 - Asset catalog with types (signboards, signals, lamps, guardrails, …)
@@ -41,8 +42,9 @@ supabase/schema.sql   one-time database setup
 1. **Supabase project** — create a free project at supabase.com.
 2. **Run the schema** — open *SQL Editor* and run, in order:
    `supabase/schema.sql`, `supabase/migration_v2.sql` (tasks + import columns),
-   `supabase/migration_v3.sql` (inspection photo column) and
-   `supabase/migration_v4.sql` (username login + admin-managed users).
+   `supabase/migration_v3.sql` (inspection photo column),
+   `supabase/migration_v4.sql` (username login + admin-managed users) and
+   `supabase/migration_v5.sql` (asset price catalog L1–L6).
    A sample import file lives at `public/sample-task.csv`.
 3. **Disable self sign-up** — Supabase → *Authentication → Providers → Email* →
    turn **off** "Allow new users to sign up". Accounts are created by admins only.
@@ -168,6 +170,34 @@ where email = 'admin@assets.local';
 `auth.identities` — if the statement errors about it, delete that column from
 the insert list.*
 
+## Price catalog (L1 → L6)
+
+`supabase/migration_v5.sql` adds four tables — `catalog_assets` (L1),
+`catalog_levels` (per-asset labels for L2–L5), `catalog_options` (the selectable
+values) and `catalog_prices` (one row per L1–L5 combination with its L6 price) —
+plus the matching columns on `inspections`, and the catalog is readable by every
+signed-in user (writes are admin-only).
+
+1. Open **Dashboard → Catalog** as an admin and press **Choose Excel file**.
+2. Pick your *Aset perabot jalan* sheet. Every block starts with a header row
+   whose column **B = `ASET`**, columns **C–F = that block's level labels**
+   (e.g. `KETERANGAN / ARM / WATT / TIANG`) and column **G = price**. Blank
+   level cells are forward-filled, so a row only has to repeat the value that
+   changed. You get a preview of every asset with its labels and priced rows;
+   press **Import now** to replace the catalog.
+3. On the phone the **Asset** step now shows: L1 asset buttons → cascading
+   L2–L5 chips (only the levels that exist for that asset, empty levels are
+   skipped) → the L6 price, filled automatically from the sheet.
+4. If a combination has **no price** in the sheet (empty cell, or a value with
+   no digits) the inspector types it or presses **Skip price**. Text prices such
+   as `RM45,000.00/TIANG` are normalised to `45000` on import. Anything not in
+   the list is recorded through **Lain-lain** with a manual description + price.
+
+Re-importing replaces the catalog; existing inspections keep the snapshot of the
+values they already stored. Prices appear in the map drawer, the inspections
+list, the mobile records list and the task CSV export (`Price source` =
+`catalog` / `manual` / `none`).
+
 ## Deploy to Vercel
 
 1. Push this folder to a GitHub repository.
@@ -194,5 +224,7 @@ the insert list.*
 - Old v1 features (asset CRUD, photo uploads) remain under the dashboard
   manage menu and the legacy `/inspect` routes.
 - Role management is via SQL (no admin UI yet).
+- The catalog is imported as a whole file (no per-row editing UI yet) and needs
+  a network round trip when the inspection form opens.
 - Login left panel background image: place any photo at `public/login-bg.jpg`.
 

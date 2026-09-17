@@ -142,6 +142,8 @@ export default async function InspectionsPage({
             <thead className="border-b border-zinc-200 bg-zinc-50 text-xs font-semibold uppercase tracking-wide text-zinc-500">
               <tr>
                 <th className="px-5 py-3">Asset</th>
+                <th className="px-5 py-3">Asset (L1)</th>
+                <th className="px-5 py-3">Price (L6)</th>
                 <th className="px-5 py-3">Condition</th>
                 <th className="px-5 py-3">Works?</th>
                 <th className="px-5 py-3">Inspected by</th>
@@ -163,6 +165,32 @@ export default async function InspectionsPage({
                     </p>
                   </td>
                   <td className="px-5 py-3">
+                    <p className="font-semibold text-zinc-900">
+                      {i.asset_category ?? "—"}
+                    </p>
+                    <p className="text-xs text-zinc-500">
+                      {[i.l2, i.l3, i.l4, i.l5].filter(Boolean).join(" · ") ||
+                        i.other_description ||
+                        ""}
+                    </p>
+                  </td>
+                  <td className="px-5 py-3">
+                    {i.price !== null && i.price !== undefined ? (
+                      <>
+                        <span className="text-zinc-800">
+                          {Number(i.price).toLocaleString()}
+                        </span>
+                        {i.price_manual ? (
+                          <span className="ml-1 text-[10px] font-semibold uppercase text-amber-600">
+                            manual
+                          </span>
+                        ) : null}
+                      </>
+                    ) : (
+                      <span className="text-zinc-400">—</span>
+                    )}
+                  </td>
+                  <td className="px-5 py-3">
                     <Badge className={CONDITION_META[i.condition].badge}>
                       {CONDITION_META[i.condition].label}
                     </Badge>
@@ -181,7 +209,7 @@ export default async function InspectionsPage({
                   <td className="px-5 py-3 text-zinc-500">
                     {i.inspection_photos?.length ?? 0} 📷
                   </td>
-                  <td className="px-5 py-3 text-right">
+                  <td className="hidden px-5 py-3 text-right xl:table-cell">
                     <Link
                       href={`/dashboard/inspections/${i.id}`}
                       className="inline-flex items-center rounded-lg px-3 py-1.5 text-sm font-semibold text-amber-700 hover:bg-amber-50"

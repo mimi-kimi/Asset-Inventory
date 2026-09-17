@@ -77,6 +77,40 @@ export function DashboardWorkspace({
     drawerRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
   }, [selected]);
 
+  /* catalog level labels, so the drawer can show "L2 · KETERANGAN" */
+  const [catalogLabels, setCatalogLabels] = useState<
+    Map<string, Record<number, string>>
+  >(new Map());
+  useEffect(() => {
+    let alive = true;
+    (async () => {
+      const supabase = createClient();
+      const [a, l] = await Promise.all([
+        supabase.from("catalog_assets").select("id, name"),
+        supabase.from("catalog_levels").select("asset_id, level_no, label"),
+      ]);
+      if (!alive) return;
+      const byId = new Map<string, Record<number, string>>();
+      for (const lv of (l.data ?? []) as {
+        asset_id: string;
+        level_no: number;
+        label: string;
+      }[]) {
+        const entry = byId.get(lv.asset_id) ?? {};
+        entry[lv.level_no] = lv.label;
+        byId.set(lv.asset_id, entry);
+      }
+      const byName = new Map<string, Record<number, string>>();
+      for (const item of (a.data ?? []) as { id: string; name: string }[]) {
+        byName.set(item.name, byId.get(item.id) ?? {});
+      }
+      setCatalogLabels(byName);
+    })().catch(() => {});
+    return () => {
+      alive = false;
+    };
+  }, []);
+
   /** fetch full marker detail (incl. latest inspection photo) on click */
   async function selectMarker(id: string) {
     const local = visibleAssets.find((a) => a.id === id) ?? null;
@@ -86,7 +120,9 @@ export function DashboardWorkspace({
     try {
       const { data } = await createClient()
         .from("assets")
-        .select("*, inspections(id, functional, inspected_at, photo_webp)")
+        .select(
+          "*, inspections(id, functional, inspected_at, photo_webp, price, price_manual, asset_category, l2, l3, l4, l5, other_description)",
+        )
         .eq("id", id)
         .maybeSingle();
       if (data) {
@@ -376,11 +412,53 @@ export function DashboardWorkspace({
 
             <dl className="space-y-2.5 border-t border-zinc-100 pt-4 text-sm">
               <div className="flex justify-between gap-3">
-                <dt className="text-xs font-semibold text-zinc-400">Price</dt>
-                <dd className="font-bold text-zinc-900">
-                  {formatPrice(selected.price ?? 0)}
+                <dt className="text-xs font-semibold text-zinc-400">Price (L6)</dt>
+                <dd className="text-right font-bold text-zinc-900">
+                  {latestInspection?.price !== null &&
+                  latestInspection?.price !== undefined
+                    ? formatPrice(latestInspection.price)
+                    : selected.price !== null && selected.price !== undefined
+                      ? formatPrice(selected.price)
+                      : "—"}
+                  {latestInspection?.price_manual ? (
+                    <span className="ml-1 text-[10px] font-semibold uppercase text-amber-600">
+                      manual
+                    </span>
+                  ) : null}
                 </dd>
               </div>
+              {latestInspection?.asset_category && (
+                <div className="flex justify-between gap-3">
+                  <dt className="text-xs font-semibold text-zinc-400">Asset (L1)</dt>
+                  <dd className="truncate text-right text-zinc-700">
+                    {latestInspection.asset_category}
+                  </dd>
+                </div>
+              )}
+              {([2, 3, 4, 5] as const).map((lvl) => {
+                const value = latestInspection?.[`l${lvl}` as "l2" | "l3" | "l4" | "l5"];
+                if (!value) return null;
+                const label = catalogLabels.get(
+                  latestInspection?.asset_category ?? "",
+                )?.[lvl];
+                return (
+                  <div key={lvl} className="flex justify-between gap-3">
+                    <dt className="text-xs font-semibold text-zinc-400">
+                      L{lvl}
+                      {label ? ` · ${label}` : ""}
+                    </dt>
+                    <dd className="text-right text-zinc-700">{value}</dd>
+                  </div>
+                );
+              })}
+              {latestInspection?.other_description && (
+                <div className="flex justify-between gap-3">
+                  <dt className="text-xs font-semibold text-zinc-400">Lain-lain</dt>
+                  <dd className="text-right text-zinc-700">
+                    {latestInspection.other_description}
+                  </dd>
+                </div>
+              )}
               <div className="flex justify-between gap-3">
                 <dt className="text-xs font-semibold text-zinc-400">Type</dt>
                 <dd className="truncate text-right text-zinc-700">

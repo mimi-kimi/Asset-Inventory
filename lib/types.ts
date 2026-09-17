@@ -25,6 +25,44 @@ export interface TaskRow {
   created_at: string;
 }
 
+/* ---------- aset perabot jalan price catalog ---------- */
+
+export interface CatalogAsset {
+  id: string;
+  name: string;
+  sort_order: number;
+}
+
+export interface CatalogLevel {
+  asset_id: string;
+  level_no: number;
+  label: string;
+}
+
+export interface CatalogOption {
+  asset_id: string;
+  level_no: number;
+  value: string;
+}
+
+export interface CatalogPriceRow {
+  id: string;
+  asset_id: string;
+  l2: string | null;
+  l3: string | null;
+  l4: string | null;
+  l5: string | null;
+  price: number | null;
+  raw_price?: string | null;
+}
+
+export interface CatalogData {
+  assets: CatalogAsset[];
+  levels: CatalogLevel[];
+  options: CatalogOption[];
+  prices: CatalogPriceRow[];
+}
+
 export interface AssetType {
   id: string;
   code: string;
@@ -59,6 +97,14 @@ export interface AssetRow {
     functional: boolean;
     inspected_at: string;
     photo_webp?: string | null;
+    price?: number | null;
+    price_manual?: boolean | null;
+    asset_category?: string | null;
+    l2?: string | null;
+    l3?: string | null;
+    l4?: string | null;
+    l5?: string | null;
+    other_description?: string | null;
   }> | null;
 }
 
@@ -78,6 +124,16 @@ export interface InspectionRow {
   functional: boolean;
   remarks: string | null;
   photo_webp?: string | null;
+  /* v5 catalog selections */
+  catalog_asset_id?: string | null;
+  asset_category?: string | null;
+  l2?: string | null;
+  l3?: string | null;
+  l4?: string | null;
+  l5?: string | null;
+  price?: number | null;
+  price_manual?: boolean;
+  other_description?: string | null;
   created_at?: string;
   assets?: {
     id: string;

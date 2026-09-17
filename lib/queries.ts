@@ -1,7 +1,17 @@
 import "server-only";
 
 import { createClient } from "@/lib/supabase/server";
-import type { AssetRow, AssetType, InspectionRow, TaskRow } from "@/lib/types";
+import type {
+  AssetRow,
+  AssetType,
+  CatalogAsset,
+  CatalogData,
+  CatalogLevel,
+  CatalogOption,
+  CatalogPriceRow,
+  InspectionRow,
+  TaskRow,
+} from "@/lib/types";
 
 /**
  * Server-side data helpers. These use the signed-in user's session cookie,
@@ -11,7 +21,7 @@ import type { AssetRow, AssetType, InspectionRow, TaskRow } from "@/lib/types";
  * payload huge. Only the single-inspection query loads them.
  */
 const INSPECTION_LIST_COLUMNS =
-  "id, asset_id, inspector_id, inspected_at, condition, functional, remarks, created_at, assets(id, code, seq_no, inventory_id, location, lat, lng, asset_types(id, code, name, icon)), inspection_photos(id, inspection_id, photo_url)";
+  "id, asset_id, inspector_id, inspected_at, condition, functional, remarks, created_at, catalog_asset_id, asset_category, l2, l3, l4, l5, price, price_manual, other_description, assets(id, code, seq_no, inventory_id, location, lat, lng, asset_types(id, code, name, icon)), inspection_photos(id, inspection_id, photo_url)";
 
 export async function queryAssets(): Promise<AssetRow[]> {
   const supabase = await createClient();
@@ -139,7 +149,9 @@ export async function queryTaskAssets(): Promise<AssetRow[]> {
   const supabase = await createClient();
   const { data, error } = await supabase
     .from("assets")
-    .select("*, tasks(id, name), inspections(id, functional, inspected_at)")
+    .select(
+      "*, tasks(id, name), inspections(id, functional, inspected_at, price, price_manual, asset_category, l2, l3, l4, l5, other_description)",
+    )
     .not("task_id", "is", null)
     .order("created_at", { ascending: false })
     .limit(20000);
@@ -169,4 +181,27 @@ export async function queryAssetWithInspectionsById(
     .maybeSingle();
   if (error) throw error;
   return (data as AssetRow | null) ?? null;
+}
+
+/** The whole price catalog (assets, level labels, options, prices). */
+export async function queryCatalog(): Promise<CatalogData> {
+  const supabase = await createClient();
+  const [assets, levels, options, prices] = await Promise.all([
+    supabase.from("catalog_assets").select("id, name, sort_order").order("sort_order"),
+    supabase.from("catalog_levels").select("asset_id, level_no, label"),
+    supabase.from("catalog_options").select("asset_id, level_no, value"),
+    supabase
+      .from("catalog_prices")
+      .select("id, asset_id, l2, l3, l4, l5, price, raw_price"),
+  ]);
+  if (assets.error) throw assets.error;
+  if (levels.error) throw levels.error;
+  if (options.error) throw options.error;
+  if (prices.error) throw prices.error;
+  return {
+    assets: (assets.data ?? []) as CatalogAsset[],
+    levels: (levels.data ?? []) as CatalogLevel[],
+    options: (options.data ?? []) as CatalogOption[],
+    prices: (prices.data ?? []) as CatalogPriceRow[],
+  };
 }

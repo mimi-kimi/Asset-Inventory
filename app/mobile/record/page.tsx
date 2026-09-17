@@ -67,6 +67,15 @@ export default async function MobileRecordPage() {
                     <p className="truncate font-bold text-zinc-900">
                       {i.assets?.inventory_id ?? "No ID-Inventory"}
                     </p>
+                    {(i.asset_category || (i.price !== null && i.price !== undefined)) && (
+                      <p className="truncate text-xs font-semibold text-amber-700">
+                        {i.asset_category ?? "Lain-lain"}
+                        {i.price !== null && i.price !== undefined
+                          ? ` · ${Number(i.price).toLocaleString()}`
+                          : ""}
+                        {i.price_manual ? " (manual)" : ""}
+                      </p>
+                    )}
                     <p className="flex items-center gap-1 truncate text-xs text-zinc-500">
                       <MapPin className="h-3 w-3" />
                       {i.assets?.location ??

@@ -9,6 +9,7 @@ import {
   ListChecks,
   LogOut,
   MonitorSmartphone,
+  Package,
   Smartphone,
   Tags,
   UserCog,
@@ -31,6 +32,7 @@ const MANAGE_LINKS: Array<{
   { href: "/dashboard/assets", label: "Assets", icon: Cone },
   { href: "/dashboard/inspections", label: "Inspections", icon: ClipboardList },
   { href: "/dashboard/types", label: "Asset types", icon: Tags, adminOnly: true },
+  { href: "/dashboard/catalog", label: "Catalog", icon: Package, adminOnly: true },
   { href: "/dashboard/users", label: "Users", icon: Users, adminOnly: true },
   { href: "/account", label: "My account", icon: UserCog },
 ];

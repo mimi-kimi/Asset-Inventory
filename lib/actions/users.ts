@@ -9,6 +9,8 @@ import {
   usernameToEmail,
 } from "@/lib/auth-username";
 import { describeError } from "@/lib/format";
+import { isRole, roleChangeError } from "@/lib/roles";
+import type { Role } from "@/lib/types";
 
 export interface ActionResult {
   ok: boolean;
@@ -25,15 +27,31 @@ async function requireAdmin() {
   return viewer;
 }
 
-export async function createInspector(input: {
+/** How many admins can currently sign in (the last one may never be demoted). */
+async function activeAdminCount(
+  admin: ReturnType<typeof createAdminClient>,
+): Promise<number> {
+  const { count, error } = await admin
+    .from("profiles")
+    .select("id", { count: "exact", head: true })
+    .eq("role", "ADMIN")
+    .eq("active", true);
+  if (error) throw error;
+  return count ?? 0;
+}
+
+export async function createUser(input: {
   username: string;
   fullName: string;
   password: string;
   mustChange: boolean;
+  /** omitted/unknown → INSPECTOR, so an accidental value can never grant rights */
+  role?: Role;
 }): Promise<ActionResult> {
   try {
     await requireAdmin();
     const username = normalizeUsername(input.username);
+    const role: Role = isRole(input.role) ? input.role : "INSPECTOR";
 
     if (!isValidUsername(username)) {
       return {
@@ -77,7 +95,7 @@ export async function createInspector(input: {
           username,
           email,
           full_name: input.fullName.trim() || null,
-          role: "INSPECTOR",
+          role,
           active: true,
           must_change_password: input.mustChange,
         })
@@ -86,9 +104,66 @@ export async function createInspector(input: {
     }
 
     revalidatePath("/dashboard/users");
-    return { ok: true, message: `Inspector "${username}" created.` };
+    return {
+      ok: true,
+      message:
+        role === "ADMIN"
+          ? `Admin "${username}" created — they land on the dashboard.`
+          : `Inspector "${username}" created.`,
+    };
   } catch (err) {
     return { ok: false, error: describeError(err, "Could not create the user.") };
+  }
+}
+
+/** Promote an inspector to admin, or send an admin back to inspector. */
+export async function setUserRole(
+  userId: string,
+  role: Role,
+): Promise<ActionResult> {
+  try {
+    const viewer = await requireAdmin();
+    if (!isRole(role)) {
+      return { ok: false, error: "Unknown role." };
+    }
+
+    const admin = createAdminClient();
+    const { data: target, error: targetError } = await admin
+      .from("profiles")
+      .select("id, username, role, active")
+      .eq("id", userId)
+      .maybeSingle();
+    if (targetError) throw targetError;
+    if (!target) return { ok: false, error: "That user no longer exists." };
+
+    const reason = roleChangeError({
+      actorId: viewer.user.id,
+      actorRole: viewer.profile.role,
+      targetId: userId,
+      targetRole: isRole(target.role) ? target.role : "INSPECTOR",
+      targetActive: Boolean(target.active),
+      next: role,
+      activeAdmins: await activeAdminCount(admin),
+    });
+    if (reason) return { ok: false, error: reason };
+
+    const { error } = await admin
+      .from("profiles")
+      .update({ role })
+      .eq("id", userId);
+    if (error) throw error;
+
+    revalidatePath("/dashboard/users");
+    const who = target.username ?? "User";
+    return {
+      ok: true,
+      message:
+        role === "ADMIN"
+          ? `${who} is now an admin — they land on the dashboard.`
+          : `${who} is now an inspector.`,
+    };
+  } catch (err) {
+    return { ok: false, error: describeError(err, "Could not change the role.") };
   }
 }
 
@@ -125,6 +200,26 @@ export async function setUserActive(
   try {
     await requireAdmin();
     const admin = createAdminClient();
+
+    /* deactivating the only admin would leave nobody able to administer the app */
+    if (!active) {
+      const { data: target } = await admin
+        .from("profiles")
+        .select("role, active")
+        .eq("id", userId)
+        .maybeSingle();
+      if (target?.role === "ADMIN" && target.active) {
+        const admins = await activeAdminCount(admin);
+        if (admins <= 1) {
+          return {
+            ok: false,
+            error:
+              "This is the only active admin — promote another admin before deactivating.",
+          };
+        }
+      }
+    }
+
     const { error: authError } = await admin.auth.admin.updateUserById(userId, {
       ban_duration: active ? "none" : "876000h",
     });

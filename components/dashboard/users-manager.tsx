@@ -8,6 +8,7 @@ import {
   Pencil,
   Plus,
   ShieldCheck,
+  ShieldOff,
   Trash2,
   UserCheck,
   UserX,
@@ -15,20 +16,28 @@ import {
 } from "lucide-react";
 import { cn, fmtDate } from "@/lib/format";
 import {
-  createInspector,
+  createUser,
   deleteUserById,
   resetUserPassword,
   setUserActive,
+  setUserRole,
   updateUserProfile,
   type ActionResult,
 } from "@/lib/actions/users";
+import {
+  countActiveAdmins,
+  roleChangeError,
+  ROLE_META,
+  ROLE_ORDER,
+} from "@/lib/roles";
+import type { Role } from "@/lib/types";
 import { Badge, btnPrimary, btnSecondary, Card, inputCls, labelCls } from "@/components/ui";
 
 export interface UserRow {
   id: string;
   username: string | null;
   full_name: string | null;
-  role: string;
+  role: Role;
   active: boolean;
   email: string | null;
   created_at: string;
@@ -44,18 +53,25 @@ function randomPassword(): string {
   return out;
 }
 
-export function UsersManager({ rows }: { rows: UserRow[] }) {
+export function UsersManager({ rows, meId }: { rows: UserRow[]; meId: string }) {
   const router = useRouter();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
 
   const [addOpen, setAddOpen] = useState(false);
-  const [form, setForm] = useState({
+  const [form, setForm] = useState<{
+    username: string;
+    fullName: string;
+    password: string;
+    mustChange: boolean;
+    role: Role;
+  }>({
     username: "",
     fullName: "",
     password: "",
     mustChange: true,
+    role: "INSPECTOR",
   });
 
   const [resetFor, setResetFor] = useState<UserRow | null>(null);
@@ -63,6 +79,25 @@ export function UsersManager({ rows }: { rows: UserRow[] }) {
 
   const [editFor, setEditFor] = useState<UserRow | null>(null);
   const [editForm, setEditForm] = useState({ username: "", fullName: "" });
+
+  const activeAdmins = countActiveAdmins(rows);
+
+  /** the role a row's shield button switches to, and why it may be blocked */
+  function roleChange(user: UserRow): { next: Role; blocked: string | null } {
+    const next: Role = user.role === "ADMIN" ? "INSPECTOR" : "ADMIN";
+    return {
+      next,
+      blocked: roleChangeError({
+        actorId: meId,
+        actorRole: "ADMIN",
+        targetId: user.id,
+        targetRole: user.role,
+        targetActive: user.active,
+        next,
+        activeAdmins,
+      }),
+    };
+  }
 
   async function run(action: () => Promise<ActionResult>): Promise<boolean> {
     setBusy(true);
@@ -95,8 +130,10 @@ export function UsersManager({ rows }: { rows: UserRow[] }) {
         <div>
           <h1 className="text-2xl font-bold text-zinc-900">Users</h1>
           <p className="mt-0.5 text-sm text-zinc-500">
-            Create inspectors here. Admins are promoted with SQL only (see the
-            README).
+            Create inspectors or admins, then promote/demote with the shield button.
+            {activeAdmins > 0
+              ? ` ${activeAdmins} active admin${activeAdmins === 1 ? "" : "s"}.`
+              : ""}
           </p>
         </div>
         <button
@@ -107,6 +144,7 @@ export function UsersManager({ rows }: { rows: UserRow[] }) {
               fullName: "",
               password: randomPassword(),
               mustChange: true,
+              role: "INSPECTOR",
             });
             setError("");
             setNotice("");
@@ -114,7 +152,7 @@ export function UsersManager({ rows }: { rows: UserRow[] }) {
           }}
           className={btnPrimary}
         >
-          <Plus className="h-4 w-4" /> Add inspector
+          <Plus className="h-4 w-4" /> Add user
         </button>
       </div>
 
@@ -142,7 +180,9 @@ export function UsersManager({ rows }: { rows: UserRow[] }) {
             </tr>
           </thead>
           <tbody className="divide-y divide-zinc-100">
-            {rows.map((u) => (
+            {rows.map((u) => {
+              const { next: nextRole, blocked: roleBlocked } = roleChange(u);
+              return (
               <tr
                 key={u.id}
                 className={cn("hover:bg-zinc-50", !u.active && "opacity-60")}
@@ -181,6 +221,35 @@ export function UsersManager({ rows }: { rows: UserRow[] }) {
                 </td>
                 <td className="px-5 py-3">
                   <div className="flex items-center justify-end gap-1">
+                    <button
+                      type="button"
+                      title={
+                        roleBlocked ??
+                        (nextRole === "ADMIN"
+                          ? `Promote ${u.username ?? "this user"} to admin`
+                          : `Demote ${u.username ?? "this user"} to inspector`)
+                      }
+                      disabled={busy || Boolean(roleBlocked)}
+                      onClick={() => {
+                        if (nextRole === "INSPECTOR") {
+                          const ok = window.confirm(
+                            `Make "${u.username ?? "this user"}" an inspector? They lose the dashboard admin tools.`,
+                          );
+                          if (!ok) return;
+                        }
+                        run(() => setUserRole(u.id, nextRole));
+                      }}
+                      className={cn(
+                        "rounded-lg p-2 hover:bg-zinc-100 disabled:cursor-not-allowed disabled:opacity-30",
+                        nextRole === "ADMIN" ? "text-amber-600" : "text-zinc-500",
+                      )}
+                    >
+                      {nextRole === "ADMIN" ? (
+                        <ShieldCheck className="h-4 w-4" />
+                      ) : (
+                        <ShieldOff className="h-4 w-4" />
+                      )}
+                    </button>
                     <button
                       type="button"
                       title="Edit name / username"
@@ -247,7 +316,8 @@ export function UsersManager({ rows }: { rows: UserRow[] }) {
                   </div>
                 </td>
               </tr>
-            ))}
+              );
+            })}
           </tbody>
         </table>
       </Card>
@@ -256,7 +326,7 @@ export function UsersManager({ rows }: { rows: UserRow[] }) {
           <div className="absolute inset-0" onClick={closeAll} />
           <div className="relative w-full max-w-md rounded-2xl border border-zinc-200 bg-white shadow-2xl">
             <div className="flex items-center justify-between border-b border-zinc-100 px-5 py-4">
-              <h2 className="text-lg font-bold text-zinc-900">Add inspector</h2>
+              <h2 className="text-lg font-bold text-zinc-900">Add user</h2>
               <button
                 type="button"
                 onClick={closeAll}
@@ -322,6 +392,41 @@ export function UsersManager({ rows }: { rows: UserRow[] }) {
                   </button>
                 </div>
               </div>
+              <div>
+                <span className={labelCls}>Role</span>
+                <div className="mt-1 grid gap-2 sm:grid-cols-2">
+                  {ROLE_ORDER.map((role) => (
+                    <label
+                      key={role}
+                      className={cn(
+                        "flex cursor-pointer items-start gap-2 rounded-xl border px-3 py-2.5 text-sm",
+                        form.role === role
+                          ? "border-amber-400 bg-amber-50"
+                          : "border-zinc-200 hover:bg-zinc-50",
+                      )}
+                    >
+                      <input
+                        type="radio"
+                        name="u-role"
+                        className="mt-0.5 h-4 w-4 border-zinc-300"
+                        checked={form.role === role}
+                        onChange={() => setForm((f) => ({ ...f, role }))}
+                      />
+                      <span>
+                        <span className="flex items-center gap-1.5 font-semibold text-zinc-800">
+                          {role === "ADMIN" ? (
+                            <ShieldCheck className="h-3.5 w-3.5 text-amber-600" />
+                          ) : null}
+                          {ROLE_META[role].label}
+                        </span>
+                        <span className="text-xs text-zinc-500">
+                          {ROLE_META[role].hint}
+                        </span>
+                      </span>
+                    </label>
+                  ))}
+                </div>
+              </div>
               <label className="flex items-center gap-2 text-sm text-zinc-700">
                 <input
                   type="checkbox"
@@ -343,18 +448,23 @@ export function UsersManager({ rows }: { rows: UserRow[] }) {
                 disabled={busy}
                 onClick={async () => {
                   const ok = await run(() =>
-                    createInspector({
+                    createUser({
                       username: form.username,
                       fullName: form.fullName,
                       password: form.password,
                       mustChange: form.mustChange,
+                      role: form.role,
                     }),
                   );
                   if (ok) setAddOpen(false);
                 }}
                 className={btnPrimary}
               >
-                {busy ? "Creating…" : "Create inspector"}
+                {busy
+                  ? "Creating…"
+                  : form.role === "ADMIN"
+                    ? "Create admin"
+                    : "Create inspector"}
               </button>
             </div>
           </div>
@@ -466,7 +576,7 @@ export function UsersManager({ rows }: { rows: UserRow[] }) {
                 />
               </div>
               <p className="text-xs text-zinc-500">
-                Role changes (admin promotion) are done with SQL — see the README.
+                Use the shield button in the list to promote or demote this user.
               </p>
             </div>
             <div className="flex justify-end gap-2 border-t border-zinc-100 px-5 py-4">

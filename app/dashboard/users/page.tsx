@@ -9,7 +9,7 @@ export const dynamic = "force-dynamic";
 export const metadata: Metadata = { title: "Users" };
 
 export default async function UsersPage() {
-  await requireAdmin();
+  const viewer = await requireAdmin();
 
   let rows: UserRow[] = [];
   let dbError: string | null = null;
@@ -48,5 +48,5 @@ export default async function UsersPage() {
     );
   }
 
-  return <UsersManager rows={rows} />;
+  return <UsersManager rows={rows} meId={viewer.user.id} />;
 }

@@ -17,7 +17,9 @@ lights, stop lights, road lamps and more.
 
 ## Features
 
-- Email/password auth with two roles: **ADMIN** and **INSPECTOR**
+- Email/password auth with two roles: **ADMIN** and **INSPECTOR** — accounts and
+  promotions are managed in **Dashboard → Users** (create as admin, or promote with
+  the shield button)
 - **Tasks page** (`/dashboard/tasks`): import CSV/Excel batches + list all imported tasks with progress
 - **Task import** (CSV/Excel): `No, ID-Inventory, Position_X(lng), Position_Y(lat), Price, Type, Remarks`
 - **CSV export** (mobile *Task* tab and the dashboard *Tasks* page): the inspected markers **or the full report history** — columns: `No · ID-Inventory · Photo URL · Latitude · Longitude · Category · L2 · L3 · L4 · L5 · Catalog path · Lain-lain · Price · Condition · Working · Remarks · Inspected at`
@@ -49,8 +51,9 @@ supabase/schema.sql   one-time database setup
    `supabase/migration_v4.sql` (username login + admin-managed users) and
    `supabase/migration_v5.sql` (asset catalog + inspection snapshot columns),
    `supabase/migration_v6.sql` (photo bucket + photo_url/photo_path),
-   `supabase/migration_v7.sql` (retire the old asset types) and
-   `supabase/migration_v8.sql` (condition = Good / Fair / Bad).
+   `supabase/migration_v7.sql` (retire the old asset types),
+   `supabase/migration_v8.sql` (condition = Good / Fair / Bad) and
+   `supabase/migration_v9.sql` (only admins may change roles / active flags).
    A sample import file lives at `public/sample-task.csv`.
 3. **Disable self sign-up** — Supabase → *Authentication → Providers → Email* →
    turn **off** "Allow new users to sign up". Accounts are created by admins only.
@@ -92,11 +95,15 @@ supabase/schema.sql   one-time database setup
 Sign-in is **username + password** (no email needed). Behind the scenes the app
 maps `username` → `username@<NEXT_PUBLIC_AUTH_EMAIL_DOMAIN>` for Supabase Auth.
 
-- **Inspectors** — Dashboard → **Users** → *Add inspector* (username, full name,
-  temporary password, optional "must change password"). You can also reset
+- **Inspectors** — Dashboard → **Users** → *Add user* (role **Inspector**): username,
+  full name, temporary password, optional "must change password". You can also reset
   passwords, deactivate/reactivate, edit names and delete accounts there.
-- **Admins** — created/promoted with **SQL only** (deliberately, so admin rights
-  can't be handed out by accident from the UI):
+- **Admins** — same dialog with the role **Admin**, or press the 🛡 **shield** button
+  on any row to **promote** an inspector (press it again to demote). Admins land on
+  `/dashboard` and can manage tasks, the catalog and users. Safeguards: you cannot
+  change your own role, and the app refuses to demote (or deactivate) the **last
+  active admin**, so nobody can lock themselves — or everyone — out.
+- Prefer SQL? It still works (and it is what `migration_v9` allows for direct SQL):
 
 ```sql
 -- promote to admin

@@ -57,11 +57,16 @@ export function AssetMap({ points }: { points: MapPoint[] }) {
         center={center}
         zoom={12}
         scrollWheelZoom
+        zoomSnap={0.25}
+        zoomDelta={0.5}
+        maxZoom={19}
         style={{ height: "100%", width: "100%" }}
       >
         <TileLayer
           attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
           url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+          maxZoom={19}
+          maxNativeZoom={19}
         />
         {points.map((p) => (
           <Marker key={p.code} position={[p.lat, p.lng]} icon={pinIcon("#f59e0b")}>

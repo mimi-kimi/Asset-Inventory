@@ -47,7 +47,6 @@ export function RecordForm({
   inspection,
   previous,
   previousBy,
-  canEditSeed = true,
   username,
 }: {
   asset: AssetRow | null;
@@ -56,8 +55,6 @@ export function RecordForm({
   previous?: InspectionRow | null;
   /** display name of that report's author, when it is not the signed-in user */
   previousBy?: string | null;
-  /** false when that report belongs to someone else — it can only be seeded */
-  canEditSeed?: boolean;
   username?: string | null;
 }) {
   const router = useRouter();
@@ -475,14 +472,12 @@ export function RecordForm({
               </strong>{" "}
               ({fmtDateTime(seed.inspected_at)}). Change only what is different, then press{" "}
               <strong>Save record</strong>.{" "}
-              {canEditSeed && (
-                <Link
-                  href={`/mobile/record/upsert?inspection=${seed.id}`}
-                  className="font-bold underline"
-                >
-                  Update that report instead
-                </Link>
-              )}
+              <Link
+                href={`/mobile/record/upsert?inspection=${seed.id}`}
+                className="font-bold underline"
+              >
+                Update that report instead
+              </Link>
             </>
           )}{" "}
           {step < STEPS.length - 1 && (

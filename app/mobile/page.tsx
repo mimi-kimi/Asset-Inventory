@@ -34,7 +34,6 @@ export default async function MobileHomePage() {
       tasks={tasks}
       assets={assets}
       meId={viewer.user.id}
-      isAdmin={viewer.profile.role === "ADMIN"}
       inspectorNames={inspectorNames}
     />
   );

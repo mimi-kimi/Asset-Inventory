@@ -74,16 +74,3 @@ export function roleChangeError(input: RoleChangeCheck): string | null {
 export function canExportData(role: Role | null | undefined): boolean {
   return role === "ADMIN";
 }
-
-/**
- * A report belongs to the person who recorded it: only they — or an admin — may
- * change it. Everyone else reads it and can add a report of their own (mirrors
- * the "update inspections" policy in migration_v10).
- */
-export function canEditInspection(input: {
-  inspectorId: string;
-  meId: string;
-  isAdmin: boolean;
-}): boolean {
-  return input.isAdmin || input.inspectorId === input.meId;
-}

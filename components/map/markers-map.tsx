@@ -88,7 +88,7 @@ export function MarkersMap({
         scrollWheelZoom
         zoomSnap={0.25}
         zoomDelta={0.5}
-        maxZoom={19}
+        maxZoom={23}
         style={{ height: "100%", width: "100%" }}
         ref={(m) => {
           if (m && m !== map) setMap(m);
@@ -97,7 +97,7 @@ export function MarkersMap({
         <TileLayer
           attribution='Tiles &copy; Esri &mdash; Source: Esri, Maxar, Earthstar Geographics, and the GIS User Community'
           url="https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"
-          maxZoom={19}
+          maxZoom={23}
           maxNativeZoom={19}
         />
         {points.map((p) => (

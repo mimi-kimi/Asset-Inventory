@@ -59,13 +59,13 @@ export function AssetMap({ points }: { points: MapPoint[] }) {
         scrollWheelZoom
         zoomSnap={0.25}
         zoomDelta={0.5}
-        maxZoom={19}
+        maxZoom={23}
         style={{ height: "100%", width: "100%" }}
       >
         <TileLayer
           attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
           url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-          maxZoom={19}
+          maxZoom={23}
           maxNativeZoom={19}
         />
         {points.map((p) => (
